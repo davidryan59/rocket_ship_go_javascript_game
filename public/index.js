@@ -2,8 +2,33 @@ var playGame = function() {
 
   var state = {}
 
+  var updateMassGameCoords = function(mass) {
+    var degreesToRadians = Math.PI/180
+    var x = mass.x
+    var y = mass.y
+    var initialAngle = mass.angle
+    var angle = 0
+    var radius = 0
+    var angleRadians = 0
+    for (var i in mass.angleRadii) {
+      angle = mass.angleRadii[i][0] + initialAngle
+      radius = mass.angleRadii[i][1]
+      angleRadians = angle * degreesToRadians
+      mass.gameCoords[i][0] = x + radius * Math.sin(angleRadians)
+      mass.gameCoords[i][1] = y + radius * Math.cos(angleRadians)
+    }
+    mass.gameCoordsValid = true
+  }
 
-  var coordsGameToCanvas = function(gameCoordArray, canvasCoordArray) {
+  var updateMassesGameCoords = function() {
+    for (var mass of state.masses) {
+      if (!mass.gameCoordsValid) {
+        updateMassGameCoords(mass)
+      }
+    }
+  }
+
+  var mapCoordsGameToCanvas = function(gameCoordArray, canvasCoordArray, extraZoom) {
     // Use gameCoordArray and current game state
     // to recalculate and overwrite the viewCoords
     // Want the two arrays to be the same size
@@ -12,6 +37,7 @@ var playGame = function() {
     var viewMidX = state.view.pos.x
     var viewMidY = state.view.pos.y
     var viewZoom = state.view.zoom
+    var overallZoom = viewZoom * extraZoom
 
     var canvasMidX = state.canvas.centre.x
     var canvasMidY = state.canvas.centre.y
@@ -26,15 +52,18 @@ var playGame = function() {
       gameCoord = gameCoordArray[i]
       gameX = gameCoord[0]
       gameY = gameCoord[1]
-      canvasX = canvasMidX + viewZoom*(gameX-viewMidX)    // Game coords start in bottom left, but
-      canvasY = canvasMidY - viewZoom*(gameY-viewMidY)    // Canvas coords start in top left
+      canvasX = canvasMidX + overallZoom*(gameX-viewMidX)    // Game coords start in bottom left, but
+      canvasY = canvasMidY - overallZoom*(gameY-viewMidY)    // Canvas coords start in top left
       canvasCoord = [canvasX, canvasY]
       canvasCoordArray[i] = canvasCoord
     }
   }
 
-  var updateViewPoints = function() {
-    coordsGameToCanvas(state.points.inGame, state.points.toCanvas)
+  var updateMassesCanvasCoords = function() {
+    for (var mass of state.masses) {
+      mapCoordsGameToCanvas(mass.gameCoords, mass.canvasMainCoords, 1)
+      mapCoordsGameToCanvas(mass.gameCoords, mass.canvasBackCoords, 0.9)
+    }
   }
 
   var doTiming = function(tFrame) {
@@ -80,6 +109,26 @@ var playGame = function() {
     // context.closePath()
   }
 
+  var drawMassesOntoCanvas = function() {
+    // console.log(state)
+    var mass = null
+    var context = state.context
+    for (var i in state.masses) {
+      mass = state.masses[i]
+      context.strokeStyle = mass.colourBack.line
+      context.lineWidth = mass.colourBack.lineWidth
+      context.fillStyle = mass.colourBack.fill
+      drawLineSet(mass.canvasBackCoords)
+    }
+    for (var i in state.masses) {
+      mass = state.masses[i]
+      context.strokeStyle = mass.colourMain.line
+      context.lineWidth = mass.colourMain.lineWidth
+      context.fillStyle = mass.colourMain.fill
+      drawLineSet(mass.canvasMainCoords)
+    }
+  }
+
   var drawCanvas = function(){
     // Set up drawing
     var canvasLeft = state.canvas.bounds.left
@@ -89,7 +138,7 @@ var playGame = function() {
     var context = state.context
     // Do drawing
     context.clearRect(canvasLeft, canvasUp, canvasRight-canvasLeft, canvasDown-canvasUp)
-    drawLineSet(state.points.toCanvas)
+    drawMassesOntoCanvas()
   }
 
   var updateDisplay = function(){
@@ -114,18 +163,65 @@ var playGame = function() {
     }
     var canvasElt = document.querySelector("#main-canvas")
     var context = canvasElt.getContext('2d')
-    context.strokeStyle = "black"
-    context.lineWidth = 1
-    context.fillStyle = "white"
-    var gamePoints = [
-      [0, 0], [800, 0], [800, 600], [0, 600],
-      [0, 10], [100, 110], [50, 300], [100, 500],
-      [200, 550], [350, 500], [550, 550], [700, 500],
-      [750, 400], [700, 350], [750, 150],
-      [700, 100], [500, 150], [450, 50], [200, 120], [100, 100],
-    ]
-    var canvasPoints = gamePoints.slice()  // Copy of array, to overwrite
-    var points = {inGame: gamePoints, toCanvas: canvasPoints}
+    var gameMasses = []
+    var addNewRandomGameMass = function(x, y, points, maxRadius, minRadius) {
+      var gameMass = {}
+      gameMass.x = x
+      gameMass.y = y
+      gameMass.colourMain = {}
+      gameMass.colourMain.line = "#552200"
+      gameMass.colourMain.lineWidth = 2
+      gameMass.colourMain.fill = "#AA3300"
+      gameMass.colourBack = {}
+      gameMass.colourBack.line = "#555500"
+      gameMass.colourBack.lineWidth = 1
+      gameMass.colourBack.fill = "#AA8800"
+      gameMass.angle = 0
+      gameMass.maxRadius = maxRadius
+      gameMass.angleRadii = []
+      // First element
+      var nextAngle = 0
+      var nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
+      var nextElt = [nextAngle, nextRadius]
+      gameMass.angleRadii.push(nextElt)
+      for (var i=1; i<points; i++) {
+        // Middle elements
+        nextAngle = 360 * i / points
+        nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
+        nextElt = [nextAngle, nextRadius]
+        gameMass.angleRadii.push(nextElt)
+      }
+      // Last element
+      nextAngle = 360
+      nextRadius = gameMass.angleRadii[0][1]
+      nextElt = [nextAngle, nextRadius]
+      gameMass.angleRadii.push(nextElt)
+      // Add to game masses
+      gameMasses.push(gameMass)
+    }
+
+    // Use function to actually create some test game masses
+    for (var x=100; x<=700; x+=100) {
+      for (var y=100; y<=500; y+=100) {
+        addNewRandomGameMass(x, y, y/10, 49, x/20)
+      }
+    }
+    gameMasses[21].colourMain.fill = "#BBDD33"
+    gameMasses[21].colourBack.fill = "#CCAABB"
+
+    // Use automation to finish setting up game masses
+    for (var gameMass of gameMasses) {
+      (!gameMass.maxRadius) ? gameMass.maxRadius = 0 : null;
+      (!gameMass.gameCoordsValid) ? gameMass.gameCoordsValid = false : null
+      gameMass.gameCoords = gameMass.angleRadii.slice()   // Shallow copy! Need deep copy!
+      gameMass.canvasMainCoords = gameMass.angleRadii.slice()
+      gameMass.canvasBackCoords = gameMass.angleRadii.slice()
+      for (var i in gameMass.gameCoords) {
+        gameMass.gameCoords[i] = gameMass.gameCoords[i].slice()  // Deep copy done here
+        gameMass.canvasMainCoords[i] = gameMass.canvasMainCoords[i].slice()
+        gameMass.canvasBackCoords[i] = gameMass.canvasBackCoords[i].slice()
+      }
+    }
     var gravity = -100    // (Pixels per second per second!)
 
     // Setup canvas variable
@@ -144,7 +240,7 @@ var playGame = function() {
     state.timing = timing
     state.canvas = canvas
     state.context = context
-    state.points = points
+    state.masses = gameMasses
     state.view = view
     state.gravity = gravity
 
@@ -176,7 +272,8 @@ var playGame = function() {
 
     doTiming(timeLoopStart)
     updateViewCoords()
-    updateViewPoints()
+    updateMassesGameCoords()
+    updateMassesCanvasCoords()
     drawCanvas()
     updateDisplay()
 
