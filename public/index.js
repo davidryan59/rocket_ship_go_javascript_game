@@ -4,14 +4,38 @@ var playGame = function() {
 
   var updateMassGameCoords = function(mass) {
     var degreesToRadians = Math.PI/180
+    // Get state variables
+    var grav = state.gravity        // Pixels per second per second
+    var dT = state.timing.msBetweenLoops / 1000    // in seconds
+    // Get mass variables
     var x = mass.x
     var y = mass.y
-    var initialAngle = mass.angle
+    var u = mass.u
+    var v = mass.v
+    var angVeloc = mass.angVeloc
+    var massAngle = mass.angle
+    // Update mass variables
+    x += dT * u
+    y += dT * v
+    massAngle += dT * angVeloc
+    if (mass.affectedByGravity) {
+      v += dT * grav
+    }
+    // Save mass variables if change is possible
+    if (mass.moves) {
+      mass.x = x
+      mass.u = u
+      mass.y = y
+      mass.v = v
+      mass.angle = massAngle
+      mass.angVeloc = angVeloc
+    }
+    // Deal with the game coordinates of the rotated parts
     var angle = 0
     var radius = 0
     var angleRadians = 0
     for (var i in mass.angleRadii) {
-      angle = mass.angleRadii[i][0] + initialAngle
+      angle = mass.angleRadii[i][0] + massAngle
       radius = mass.angleRadii[i][1]
       angleRadians = angle * degreesToRadians
       mass.gameCoords[i][0] = x + radius * Math.sin(angleRadians)
@@ -22,7 +46,7 @@ var playGame = function() {
 
   var updateMassesGameCoords = function() {
     for (var mass of state.masses) {
-      if (!mass.gameCoordsValid) {
+      if (!mass.gameCoordsValid || mass.moves) {
         updateMassGameCoords(mass)
       }
     }
@@ -78,14 +102,23 @@ var playGame = function() {
   var updateViewCoords = function() {
     var prevX = state.view.pos.x    // Pixels
     var prevY = state.view.pos.y    // Pixels
-    var prevU = state.view.vel.u    // Pixels per second
-    var prevV = state.view.vel.v    // Pixels per second
+    // var prevU = state.view.vel.u    // Pixels per second
+    // var prevV = state.view.vel.v    // Pixels per second
     var grav = state.gravity        // Pixels per second per second
     var dT = state.timing.msBetweenLoops / 1000    // in seconds
-    state.view.pos.x = prevX + prevU * dT
-    state.view.pos.y = prevY + prevV * dT
+    var followX = state.viewFollow.x
+    var followY = state.viewFollow.y
+    var dX = followX-prevX
+    var dY = followY-prevY
+    var dRdR = dX*dX + dY*dY
+    state.view.pos.x = prevX + dX / 50
+    state.view.pos.y = prevY + dY / 50
+    state.view.zoom = 1/((1+dRdR)**0.03)
+
+    // state.view.pos.x = prevX + prevU * dT
+    // state.view.pos.y = prevY + prevV * dT
     // state.view.vel.u = prevU + 0 * dT   // Currently does nothing
-    state.view.vel.v = prevV + grav * dT
+    // state.view.vel.v = prevV + grav * dT  // Should be following the ship, not moving under gravity!
   }
 
   var drawLineSet = function(coordsArray){
@@ -163,21 +196,40 @@ var playGame = function() {
     }
     var canvasElt = document.querySelector("#main-canvas")
     var context = canvasElt.getContext('2d')
+
+    // Setup canvas variable
+    var boundLeft = 0
+    var boundRight = canvasElt.width
+    var boundUp = 0
+    var boundDown = canvasElt.height
+    var canvasBounds = {left: boundLeft, right: boundRight, up: boundUp, down: boundDown}
+    var canvasCentre = {x: (boundLeft+boundRight)/2, y: (boundUp+boundDown)/2}
+    var canvas = {elt: canvasElt, bounds: canvasBounds, centre: canvasCentre}
+    var view = {pos: {x: canvasCentre.x, y: canvasCentre.y}, zoom: 1}
+    // x, y are positions in pixels
+    // u, v are velocities in pixels per second
+    var gravity = -50    // (Pixels per second per second!)
+
     var gameMasses = []
     var addNewRandomGameMass = function(x, y, points, maxRadius, minRadius) {
       var gameMass = {}
       gameMass.x = x
       gameMass.y = y
       gameMass.colourMain = {}
-      gameMass.colourMain.line = "#350800"
-      gameMass.colourMain.lineWidth = 4
-      gameMass.colourMain.fill = "#441100"
+      gameMass.colourMain.line = "#440033"
+      gameMass.colourMain.lineWidth = 3
+      gameMass.colourMain.fill = "#662A00"
       gameMass.colourBack = {}
-      gameMass.colourBack.line = "#303500"
-      gameMass.colourBack.lineWidth = 1
-      gameMass.colourBack.fill = "#664400"
+      gameMass.colourBack.line = "#775500"
+      gameMass.colourBack.lineWidth = 2
+      gameMass.colourBack.fill = "#997700"
       gameMass.angle = 0
       gameMass.maxRadius = maxRadius
+      gameMass.moves = false
+      gameMass.u = 0    // Anything which doesn't move should have u, v, angVeloc = 0
+      gameMass.v = 0
+      gameMass.angVeloc = 0
+      gameMass.affectedByGravity = false  // Things should only be affected by gravity if they move!
       gameMass.angleRadii = []
       // First element
       var nextAngle = 0
@@ -198,9 +250,25 @@ var playGame = function() {
       gameMass.angleRadii.push(nextElt)
       // Add to game masses
       gameMasses.push(gameMass)
+      return gameMass
     }
 
-    // Use function to actually create some test game masses
+    var theJetman = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 30, 30)
+    theJetman.angleRadii[1][1]=10
+    theJetman.angleRadii[2][1]=18
+    theJetman.angleRadii[3][1]=18
+    theJetman.angleRadii[4][1]=10
+    theJetman.moves = true
+    theJetman.affectedByGravity = true
+    theJetman.u = 40
+    theJetman.v = 80
+    theJetman.angVeloc = 15      // Degrees per second!
+    // theJetman.angleRadii[5][1]=40
+    // theJetman.angleRadii[6][1]=12
+    // theJetman.angleRadii[7][1]=10
+    // theJetman.angleRadii[8][1]=12
+
+    // Use above function to actually create some test game masses
     var xMin = -50
     var xMax = 850
     var yMin = -50
@@ -230,19 +298,6 @@ var playGame = function() {
         gameMass.canvasBackCoords[i] = gameMass.canvasBackCoords[i].slice()
       }
     }
-    var gravity = -100    // (Pixels per second per second!)
-
-    // Setup canvas variable
-    var boundLeft = 0
-    var boundRight = canvasElt.width
-    var boundUp = 0
-    var boundDown = canvasElt.height
-    var canvasBounds = {left: boundLeft, right: boundRight, up: boundUp, down: boundDown}
-    var canvasCentre = {x: (boundLeft+boundRight)/2, y: (boundUp+boundDown)/2}
-    var canvas = {elt: canvasElt, bounds: canvasBounds, centre: canvasCentre}
-    var view = {pos: {x: canvasCentre.x, y: canvasCentre.y}, vel: {u: -40, v: 50}, zoom: 1}
-    // x, y are positions in pixels
-    // u, v are velocities in pixels per second
 
     // Store them all in the state
     state.timing = timing
@@ -251,6 +306,7 @@ var playGame = function() {
     state.masses = gameMasses
     state.view = view
     state.gravity = gravity
+    state.viewFollow = theJetman
 
     // console.log(state)
 
@@ -272,7 +328,7 @@ var playGame = function() {
     // i.e. browser and main loop are synchronised
 
     state.loopCount++
-    if (state.loopCount > 100) {
+    if (state.loopCount > 400) {
       // At the moment, just run the loop
       // a fixed number of times
       state.continueLooping = false
