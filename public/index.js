@@ -169,13 +169,13 @@ var playGame = function() {
       gameMass.x = x
       gameMass.y = y
       gameMass.colourMain = {}
-      gameMass.colourMain.line = "#552200"
-      gameMass.colourMain.lineWidth = 2
-      gameMass.colourMain.fill = "#AA3300"
+      gameMass.colourMain.line = "#350800"
+      gameMass.colourMain.lineWidth = 4
+      gameMass.colourMain.fill = "#441100"
       gameMass.colourBack = {}
-      gameMass.colourBack.line = "#555500"
+      gameMass.colourBack.line = "#303500"
       gameMass.colourBack.lineWidth = 1
-      gameMass.colourBack.fill = "#AA8800"
+      gameMass.colourBack.fill = "#664400"
       gameMass.angle = 0
       gameMass.maxRadius = maxRadius
       gameMass.angleRadii = []
@@ -201,13 +201,21 @@ var playGame = function() {
     }
 
     // Use function to actually create some test game masses
-    for (var x=100; x<=700; x+=100) {
-      for (var y=100; y<=500; y+=100) {
-        addNewRandomGameMass(x, y, y/10, 49, x/20)
-      }
+    var xMin = -50
+    var xMax = 850
+    var yMin = -50
+    var yMax = 650
+    var points = 19
+    var maxRadius = 150
+    var minRadius = 40
+    for (var x=xMin; x<=xMax; x+=100) {
+      addNewRandomGameMass(x, yMin, points, maxRadius, minRadius)
+      addNewRandomGameMass(x, yMax, points, maxRadius, minRadius)
     }
-    gameMasses[21].colourMain.fill = "#BBDD33"
-    gameMasses[21].colourBack.fill = "#CCAABB"
+    for (var y=yMin; y<=yMax; y+=100) {
+      addNewRandomGameMass(xMin, y, points, maxRadius, minRadius)
+      addNewRandomGameMass(xMax, y, points, maxRadius, minRadius)
+    }
 
     // Use automation to finish setting up game masses
     for (var gameMass of gameMasses) {
