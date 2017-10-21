@@ -106,18 +106,18 @@ var playGame = function() {
   var updateViewCoords = function() {
     var prevX = state.view.pos.x    // Pixels
     var prevY = state.view.pos.y    // Pixels
-    // var prevU = state.view.vel.u    // Pixels per second
-    // var prevV = state.view.vel.v    // Pixels per second
-    var grav = state.gravity        // Pixels per second per second
-    var dT = state.timing.msBetweenLoops / 1000    // in seconds
     var followX = state.viewFollow.x
     var followY = state.viewFollow.y
     var dX = followX-prevX
     var dY = followY-prevY
-    var dRdR = dX*dX + dY*dY
-    state.view.pos.x = prevX + dX / 50
-    state.view.pos.y = prevY + dY / 50
-    state.view.zoom = 1/((1+dRdR)**0.06)
+    var d2 = state.viewFollow.u**2 + state.viewFollow.v**2
+    // Sometimes view can stay behind Jetman so far
+    // he's off the screen! Fix this.
+    state.view.pos.x = prevX + dX / 15
+    state.view.pos.y = prevY + dY / 15
+    // When Jetman stops momentarily, the screen zooms in and out
+    // very fast. Fix this.
+    state.view.zoom = 0.92+0.08/(1+0.0001*d2)
   }
 
   var drawLineSet = function(coordsArray){
