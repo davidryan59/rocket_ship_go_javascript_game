@@ -188,28 +188,41 @@ var playGame = function() {
   }
 
   var fireBullet = function() {
-    var bulletSides = 3 + Math.round(5 * Math.random())
-    var spin = -200 + 400 * Math.random()
-    var bulletX = state.viewFollow.x + 30 * Math.sin(degreesToRadians * state.viewFollow.angle)
-    var bulletY = state.viewFollow.y + 30 * Math.cos(degreesToRadians * state.viewFollow.angle)
-    var bullet = addNewRandomGameMass(bulletX, bulletY, bulletSides, 7, 7)
+    var bulletMaxRadius = 7
+    var bulletDeformity = Math.round((bulletMaxRadius-1)*Math.random())
+    var bulletRelativeSpeed = 300
+    var bulletVelocRecoil = 20
+    var bulletSpinRecoil = 0.5
+    var bulletSides = 3 + Math.round(30 * Math.random()**10)   // Bias towards fewer edges
+    var spin = 400 * (-0.5 + Math.random())
+    var bulletX = state.viewFollow.x + 50 * Math.sin(degreesToRadians * state.viewFollow.angle)
+    var bulletY = state.viewFollow.y + 50 * Math.cos(degreesToRadians * state.viewFollow.angle)
+    var bullet = addNewRandomGameMass(bulletX, bulletY, bulletSides, bulletMaxRadius, bulletMaxRadius-bulletDeformity)
     bullet.moves = true
     bullet.affectedByGravity = true
-    bullet.u = state.viewFollow.u + 200 * Math.sin(degreesToRadians * state.viewFollow.angle)
-    bullet.v = state.viewFollow.v + 200 * Math.cos(degreesToRadians * state.viewFollow.angle)
+    bullet.u = state.viewFollow.u + bulletRelativeSpeed * Math.sin(degreesToRadians * state.viewFollow.angle)
+    bullet.v = state.viewFollow.v + bulletRelativeSpeed * Math.cos(degreesToRadians * state.viewFollow.angle)
     bullet.angVeloc = spin
     bullet.graphics.main = {}
-    bullet.graphics.main.strokeStyle = "#000000"
-    bullet.graphics.main.lineWidth = 2
     bullet.graphics.main.fillStyle = "#00FF00"
+    bullet.graphics.main.strokeStyle = "#000000"
+    bullet.graphics.main.lineWidth = 3
     bullet.graphics.back = {}
     bullet.graphics.back.zoomOut = 1.03 + 0.05 * Math.random()
-    bullet.graphics.back.strokeStyle = "#FFFFFF"
-    bullet.graphics.back.lineWidth = 2
     bullet.graphics.back.fillStyle = "#FF00FF"
-    state.viewFollow.u -= 20 * Math.sin(degreesToRadians*state.viewFollow.angle)
-    state.viewFollow.v -= 20 * Math.cos(degreesToRadians*state.viewFollow.angle)
-    state.viewFollow.angVeloc -= spin/2
+    bullet.graphics.back.strokeStyle = "#FFFFFF"
+    bullet.graphics.back.lineWidth = 3
+    if (Math.random()<0.005) {
+      bullet.graphics.back.fillStyle = "#FF0000"
+      bullet.graphics.back.strokeStyle = "#FFFFFF"
+    }
+    if (Math.random()<0.001) {
+      bullet.graphics.main.fillStyle = "#FFFF00"
+      bullet.graphics.main.strokeStyle = "#0000FF"
+    }
+    state.viewFollow.u -= bulletVelocRecoil * Math.sin(degreesToRadians*state.viewFollow.angle)
+    state.viewFollow.v -= bulletVelocRecoil * Math.cos(degreesToRadians*state.viewFollow.angle)
+    state.viewFollow.angVeloc -= bulletSpinRecoil * spin
     state.ammo--
   }
 
