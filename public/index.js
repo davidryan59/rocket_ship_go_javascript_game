@@ -118,11 +118,6 @@ var playGame = function() {
     state.view.pos.x = prevX + dX / 50
     state.view.pos.y = prevY + dY / 50
     state.view.zoom = 1/((1+dRdR)**0.06)
-
-    // state.view.pos.x = prevX + prevU * dT
-    // state.view.pos.y = prevY + prevV * dT
-    // state.view.vel.u = prevU + 0 * dT   // Currently does nothing
-    // state.view.vel.v = prevV + grav * dT  // Should be following the ship, not moving under gravity!
   }
 
   var drawLineSet = function(coordsArray){
@@ -187,23 +182,30 @@ var playGame = function() {
       state.htmlElements.v.innerText = Math.round(state.viewFollow.v)
       state.htmlElements.anglePos.innerText = Math.round(state.viewFollow.angle)
       state.htmlElements.angleVel.innerText = Math.round(state.viewFollow.angVeloc)
+      state.htmlElements.fuel.innerText = Math.round(state.fuel)
     }
   }
 
   var respondToKeyboard = function() {
-    if (state.keysMonitored.ArrowLeft) {
-      state.viewFollow.angVeloc -= 10
-    }
-    if (state.keysMonitored.ArrowRight) {
-      state.viewFollow.angVeloc += 10
-    }
-    if (!state.keysMonitored.ArrowLeft && !state.keysMonitored.ArrowRight) {
-      state.viewFollow.angVeloc *= 0.90
-    }
-    if (state.keysMonitored.ArrowUp) {
-      var mult = Math.PI / 180
-      state.viewFollow.u += 5 * Math.sin(mult*state.viewFollow.angle)
-      state.viewFollow.v += 5 * Math.cos(mult*state.viewFollow.angle)
+    if (state.fuel > 0) {
+      if (state.keysMonitored.ArrowLeft) {
+        state.viewFollow.angVeloc -= 15
+        state.fuel -= 0.001
+      }
+      if (state.keysMonitored.ArrowRight) {
+        state.viewFollow.angVeloc += 15
+        state.fuel -= 0.001
+      }
+      if (!state.keysMonitored.ArrowLeft && !state.keysMonitored.ArrowRight) {
+        state.viewFollow.angVeloc *= 0.92
+        // If deducting fuel, make it proportional to abs of angVeloc
+      }
+      if (state.keysMonitored.ArrowUp) {
+        var mult = Math.PI / 180
+        state.viewFollow.u += 10 * Math.sin(mult*state.viewFollow.angle)
+        state.viewFollow.v += 10 * Math.cos(mult*state.viewFollow.angle)
+        state.fuel -= 0.005
+      }
     }
     if (state.keysMonitored.KeyQ) {
       state.continueLooping = false
@@ -243,7 +245,6 @@ var playGame = function() {
     var view = {pos: {x: canvasCentre.x, y: canvasCentre.y}, zoom: 1}
     // x, y are positions in pixels
     // u, v are velocities in pixels per second
-    var gravity = -50    // (Pixels per second per second!)
 
     var gameMasses = []
     var addNewRandomGameMass = function(x, y, points, maxRadius, minRadius) {
@@ -253,15 +254,15 @@ var playGame = function() {
       gameMass.graphics = {}
       // Foreground / Main rendered at zoom = zoomOut = 1
       gameMass.graphics.main = {}
-      gameMass.graphics.main.strokeStyle = "#440033"
+      gameMass.graphics.main.strokeStyle = "#333333"
       gameMass.graphics.main.lineWidth = 3
-      gameMass.graphics.main.fillStyle = "#662A00"
+      gameMass.graphics.main.fillStyle = "#555555"
       // Background rendered at higher zoomOut > 1  (zoomOut = 1/zoom)
       gameMass.graphics.back = {}
       gameMass.graphics.back.zoomOut = 1.1
-      gameMass.graphics.back.strokeStyle = "#775500"
+      gameMass.graphics.back.strokeStyle = "#777777"
       gameMass.graphics.back.lineWidth = 2
-      gameMass.graphics.back.fillStyle = "#997700"
+      gameMass.graphics.back.fillStyle = "#999999"
       // Note: gameMasses will be rendered in the order they are stored!
       // However, it will only look correct if the objects with
       // higher zoomOuts are rendered first
@@ -298,21 +299,22 @@ var playGame = function() {
     }
 
     // Make some walls using the random mass
-    var xMin = -50
-    var xMax = 850
-    var yMin = -50
-    var yMax = 650
-    var points = 19
+    var xMin = -100
+    var xMax = 900
+    var yMin = -100
+    var yMax = 700
+    var step = 125
+    var points = 19     // Overridden randomly below
     var maxRadius = 150
     var minRadius = 40
     // Make the set of points first
     // Then generate the wall elements in a random order
     var wallCoordSet = []
-    for (var x=xMin; x<=xMax; x+=100) {
+    for (var x=xMin; x<=xMax; x+=step) {
       wallCoordSet.push([x, yMin, Math.random()])
       wallCoordSet.push([x, yMax, Math.random()])
     }
-    for (var y=yMin; y<=yMax; y+=100) {
+    for (var y=yMin+step; y<=yMax-step; y+=step) {
       wallCoordSet.push([xMin, y, Math.random()])
       wallCoordSet.push([xMax, y, Math.random()])
     }
@@ -322,20 +324,79 @@ var playGame = function() {
     console.log(wallCoordSet)
     var theMass = null
     for (var i in wallCoordSet) {
-      points = 4 + Math.round(40*Math.random())
-      maxRadius = 60 + Math.round(130*Math.random())
-      minRadius = 20 + Math.round(0.5*maxRadius*Math.random())
+      points = 3 + Math.round(21*Math.random())
+      maxRadius = 50 + Math.round(150*Math.random())
+      minRadius = 10 + Math.round(0.9*maxRadius*Math.random())
       theMass = addNewRandomGameMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius)
       theMass.graphics.back.zoomOut = 1.05 + 0.5*(1-wallCoordSet[i][2]**0.5)
     }
 
+    var j=0
+    var jMax = gameMasses.length - 1
+
+    // Make some of the game masses rotate!
+    for (var i=0; i<7; i++) {
+      j = Math.round(jMax * Math.random())
+      gameMasses[j].moves = true
+      gameMasses[j].angVeloc = -30 + 60 * Math.random()  // deg/s
+    }
+
+    // Make some of the game masses dark brown!
+    for (var i=0; i<9; i++) {
+      j = Math.round(jMax * Math.random())
+      gameMasses[i].graphics.main.fillStyle = "#553311"
+      gameMasses[i].graphics.main.strokeStyle = "#331100"
+      gameMasses[i].graphics.back.fillStyle = "#AA9988"
+      gameMasses[i].graphics.back.strokeStyle = "#998877"
+    }
+
+    // Make some of the game masses gold!
+    for (var i=0; i<3; i++) {
+      j = Math.round(jMax * Math.random())
+      gameMasses[i].graphics.main.fillStyle = "#888011"
+      gameMasses[i].graphics.main.strokeStyle = "#552222"
+      gameMasses[i].graphics.back.fillStyle = "#A8AA88"
+      gameMasses[i].graphics.back.strokeStyle = "#999999"
+    }
+
+    // // Foreground / Main rendered at zoom = zoomOut = 1
+    // gameMass.graphics.main = {}
+    // gameMass.graphics.main.strokeStyle = "#440033"
+    // gameMass.graphics.main.lineWidth = 3
+    // gameMass.graphics.main.fillStyle = "#662A00"
+    // // Background rendered at higher zoomOut > 1  (zoomOut = 1/zoom)
+    // gameMass.graphics.back = {}
+    // gameMass.graphics.back.zoomOut = 1.1
+    // gameMass.graphics.back.strokeStyle = "#775500"
+    // gameMass.graphics.back.lineWidth = 2
+    // gameMass.graphics.back.fillStyle = "#997700"
+
+    // // Make some of the game masses brown colours!
+    // var moveIndices = [2, 5, 7, 12, 15, 16, 17, 18]
+    // for (var i of moveIndices) {
+    //   j =
+    //   gameMasses[i].graphics.main.fillStyle = "#990044"
+    //   gameMasses[i].graphics.main.strokeStyle = "#882200"
+    //   gameMasses[i].graphics.back.fillStyle = "#779900"
+    //   gameMasses[i].graphics.back.strokeStyle = "#008888"
+    // }
+    //
+    // // Make some of the game masses gold colours!
+    // var moveIndices = [2, 5, 7, 12, 15, 16, 17, 18]
+    // for (var i of moveIndices) {
+    //   gameMasses[i].graphics.main.fillStyle = "#990044"
+    //   gameMasses[i].graphics.main.strokeStyle = "#882200"
+    //   gameMasses[i].graphics.back.fillStyle = "#779900"
+    //   gameMasses[i].graphics.back.strokeStyle = "#008888"
+    // }
+
 
     // Make the game player
-    var theJetman = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 30, 30)
-    theJetman.angleRadii[1][1]=10
-    theJetman.angleRadii[2][1]=18
-    theJetman.angleRadii[3][1]=18
-    theJetman.angleRadii[4][1]=10
+    var theJetman = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 41, 41)
+    theJetman.angleRadii[1][1]=13
+    theJetman.angleRadii[2][1]=23
+    theJetman.angleRadii[3][1]=23
+    theJetman.angleRadii[4][1]=13
     theJetman.moves = true
     theJetman.affectedByGravity = true
     theJetman.u = 40
@@ -350,23 +411,8 @@ var playGame = function() {
     theJetman.graphics.back.lineWidth = 2
     theJetman.graphics.back.fillStyle = "#00FFFF"
 
-    // Make some of the game masses rotate!
-    var moveIndices = [2, 4, 6, 8, 10, 12, 14, 16]
-    for (var i of moveIndices) {
-      gameMasses[i].moves = true
-      gameMasses[i].angVeloc = -30 + 60 * Math.random()  // deg/s
-    }
-
-    // Make some of the game masses different colours!
-    var moveIndices = [2, 5, 7, 12, 15, 16, 17, 18]
-    for (var i of moveIndices) {
-      gameMasses[i].graphics.main.fillStyle = "#990044"
-      gameMasses[i].graphics.main.strokeStyle = "#882200"
-      gameMasses[i].graphics.back.fillStyle = "#779900"
-      gameMasses[i].graphics.back.strokeStyle = "#008888"
-    }
-
-    // Use automation to finish setting up game masses / player / etc
+    // DO AFTER ALL MASSES CREATED
+    // Use automation on Jetman, Masses, etc to finish setting up game masses
     for (var gameMass of gameMasses) {
       (!gameMass.maxRadius) ? gameMass.maxRadius = 0 : null;
       (!gameMass.gameCoordsValid) ? gameMass.gameCoordsValid = false : null
@@ -396,6 +442,14 @@ var playGame = function() {
     state.htmlElements.v = document.querySelector("#vel-v")
     state.htmlElements.anglePos = document.querySelector("#ang-pos")
     state.htmlElements.angleVel = document.querySelector("#ang-vel")
+    state.htmlElements.fuel = document.querySelector("#fuel-left")
+
+    // Special variables
+    state.fuel = 100
+    // state.health = 100  // Future iterations!
+    // state.ammo = 1000
+    // state.money = 0
+    state.gravity = -120    // (Pixels per second per second!)
 
     // Store them all in the state
     state.timing = timing
@@ -403,7 +457,6 @@ var playGame = function() {
     state.context = context
     state.masses = gameMasses
     state.view = view
-    state.gravity = gravity
     state.viewFollow = theJetman
 
     // console.log(state)
