@@ -297,26 +297,6 @@ var playGame = function() {
       return gameMass
     }
 
-    // Make the game player
-    var theJetman = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 30, 30)
-    theJetman.angleRadii[1][1]=10
-    theJetman.angleRadii[2][1]=18
-    theJetman.angleRadii[3][1]=18
-    theJetman.angleRadii[4][1]=10
-    theJetman.moves = true
-    theJetman.affectedByGravity = true
-    theJetman.u = 40
-    theJetman.v = 80
-    theJetman.angVeloc = 15      // Degrees per second!
-    theJetman.graphics.main = {}
-    theJetman.graphics.main.strokeStyle = "#000000"
-    theJetman.graphics.main.lineWidth = 1
-    theJetman.graphics.main.fillStyle = "#0000FF"
-    theJetman.graphics.back = {}
-    theJetman.graphics.back.strokeStyle = "#FFFFFF"
-    theJetman.graphics.back.lineWidth = 2
-    theJetman.graphics.back.fillStyle = "#00FFFF"
-
     // Make some walls using the random mass
     var xMin = -50
     var xMax = 850
@@ -345,25 +325,55 @@ var playGame = function() {
       theMass = addNewRandomGameMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius)
       theMass.graphics.back.zoomOut = 1.05 + 0.5*(1-wallCoordSet[i][2]**0.5)
     }
-    // var numberOfPoints = wallCoordSet.length
-    // var pointsLeft = 0
-    // var randPointIndex = 0
-    // var theWallCoord = [0, 0]
-    // for (var i=0; i<numberOfPoints; i++) {
-    //   pointsLeft = numberOfPoints - i
-    //   randPointIndex = Math.round(pointsLeft*Math.random())
-    //   theWallCoord = wallCoordSet.splice(randPointIndex, 1)  // e.g. [[1, 2]]
-    //   theWallCoord = theWallCoord[0]                         // e.g. [1, 2]
-    //   console.log(theWallCoord)
-    //   console.log(wallCoordSet)
-    //   addNewRandomGameMass(theWallCoord[0], theWallCoord[1], points, maxRadius, minRadius)
-    // }
-    // console.log(gameMasses)
 
 
+    // Make the game player
+    var theJetman = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 30, 30)
+    theJetman.angleRadii[1][1]=10
+    theJetman.angleRadii[2][1]=18
+    theJetman.angleRadii[3][1]=18
+    theJetman.angleRadii[4][1]=10
+    theJetman.moves = true
+    theJetman.affectedByGravity = true
+    theJetman.u = 40
+    theJetman.v = 80
+    theJetman.angVeloc = 15      // Degrees per second!
+    theJetman.graphics.main = {}
+    theJetman.graphics.main.strokeStyle = "#000000"
+    theJetman.graphics.main.lineWidth = 1
+    theJetman.graphics.main.fillStyle = "#0000FF"
+    theJetman.graphics.back = {}
+    theJetman.graphics.back.strokeStyle = "#FFFFFF"
+    theJetman.graphics.back.lineWidth = 2
+    theJetman.graphics.back.fillStyle = "#00FFFF"
 
+    // Make some of the game masses rotate!
+    var moveIndices = [2, 4, 6, 8, 10, 12, 14]
+    for (var i of moveIndices) {
+      gameMasses[i].moves = true
+      gameMasses[i].angVeloc = -30 + 60 * Math.random()  // deg/s
+    }
 
-    // Use automation to finish setting up game masses
+    // Make some of the game masses subject to gravity!
+    var moveIndices = [3, 5]
+    for (var i of moveIndices) {
+      gameMasses[i].moves = true
+      gameMasses[i].affectedByGravity = true
+      gameMasses[i].v = 200
+      gameMasses[i].u = -100 + 200 * Math.random()     // px/s
+      gameMasses[i].angVeloc = -20 + 40 * Math.random()  // deg/s
+    }
+
+    // Make some of the game masses different colours!
+    var moveIndices = [2, 5, 7, 12]
+    for (var i of moveIndices) {
+      gameMasses[i].graphics.main.fillStyle = "#990044"
+      gameMasses[i].graphics.main.strokeStyle = "#882200"
+      gameMasses[i].graphics.back.fillStyle = "#779900"
+      gameMasses[i].graphics.back.strokeStyle = "#008888"
+    }
+
+    // Use automation to finish setting up game masses / player / etc
     for (var gameMass of gameMasses) {
       (!gameMass.maxRadius) ? gameMass.maxRadius = 0 : null;
       (!gameMass.gameCoordsValid) ? gameMass.gameCoordsValid = false : null
