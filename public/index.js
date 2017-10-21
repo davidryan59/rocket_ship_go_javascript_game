@@ -17,7 +17,7 @@ var playGame = function() {
     // Update mass variables
     x += dT * u
     y += dT * v
-    massAngle += dT * angVeloc
+    massAngle = ( massAngle + dT * angVeloc) % 360
     if (mass.affectedByGravity) {
       v += dT * grav
     }
@@ -179,15 +179,46 @@ var playGame = function() {
   }
 
   var updateDisplay = function(){
-    var renderTimeElt = state.timing.renderTimeElt
-    var msRenderTime = state.timing.msRenderTime
-    var renderTimeText = Math.round(msRenderTime*1)/1
-    renderTimeElt.innerText = renderTimeText
+    if (state.loopCount % 7 === 0) {
+      state.timing.renderTimeElt.innerText = Math.round(state.timing.msRenderTime )
+      state.htmlElements.x.innerText = Math.round(state.viewFollow.x)
+      state.htmlElements.y.innerText = Math.round(state.viewFollow.y)
+      state.htmlElements.u.innerText = Math.round(state.viewFollow.u)
+      state.htmlElements.v.innerText = Math.round(state.viewFollow.v)
+      state.htmlElements.anglePos.innerText = Math.round(state.viewFollow.angle)
+      state.htmlElements.angleVel.innerText = Math.round(state.viewFollow.angVeloc)
+    }
+  }
+
+  var respondToKeyboard = function() {
+    if (state.keysMonitored.ArrowLeft) {
+      state.viewFollow.angVeloc -= 10
+    }
+    if (state.keysMonitored.ArrowRight) {
+      state.viewFollow.angVeloc += 10
+    }
+    if (!state.keysMonitored.ArrowLeft && !state.keysMonitored.ArrowRight) {
+      state.viewFollow.angVeloc *= 0.90
+    }
+    if (state.keysMonitored.ArrowUp) {
+      var mult = Math.PI / 180
+      state.viewFollow.u += 5 * Math.sin(mult*state.viewFollow.angle)
+      state.viewFollow.v += 5 * Math.cos(mult*state.viewFollow.angle)
+    }
+    if (state.keysMonitored.KeyQ) {
+      state.continueLooping = false
+    }
+    if (state.keysMonitored.KeyP) {
+      // // Taken out - this doesn't actually work - how to fix?
+      // state.paused = !state.paused
+    }
+
   }
 
 
   var setupState = function() {
     state.continueLooping = true
+    state.paused = false
     state.loopCount = 0
 
     // Setup variables for game
@@ -312,7 +343,7 @@ var playGame = function() {
     var theMass = null
     for (var i in wallCoordSet) {
       theMass = addNewRandomGameMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius)
-      theMass.graphics.back.zoomOut = 1 + 2/(1 + 0.1*i)
+      theMass.graphics.back.zoomOut = 1.05 + 0.5*(1-wallCoordSet[i][2]**0.5)
     }
     // var numberOfPoints = wallCoordSet.length
     // var pointsLeft = 0
@@ -346,6 +377,23 @@ var playGame = function() {
       }
     }
 
+    // Monitor key presses
+    state.keysMonitored = {}
+    state.keysMonitored.ArrowLeft = false
+    state.keysMonitored.ArrowRight = false
+    state.keysMonitored.ArrowUp = false
+    state.keysMonitored.KeyQ = false
+    state.keysMonitored.KeyP = false
+
+    // Setup links to HTML items
+    state.htmlElements = {}
+    state.htmlElements.x = document.querySelector("#pos-x")
+    state.htmlElements.y = document.querySelector("#pos-y")
+    state.htmlElements.u = document.querySelector("#vel-u")
+    state.htmlElements.v = document.querySelector("#vel-v")
+    state.htmlElements.anglePos = document.querySelector("#ang-pos")
+    state.htmlElements.angleVel = document.querySelector("#ang-vel")
+
     // Store them all in the state
     state.timing = timing
     state.canvas = canvas
@@ -374,38 +422,44 @@ var playGame = function() {
     // frame displayed by the browser
     // i.e. browser and main loop are synchronised
 
-    state.loopCount++
-    if (state.loopCount > 400) {
-      // At the moment, just run the loop
-      // a fixed number of times
-      state.continueLooping = false
+    if (!state.paused) {
+      state.loopCount++
+      doTiming(timeLoopStart)
+      respondToKeyboard()
+      updateViewCoords()
+      updateMassesGameCoords()
+      updateMassesCanvasCoords()
+      drawCanvas()
+      updateDisplay()
+      var timeLoopEnd = window.performance.now()
+      state.timing.msRenderTime = timeLoopEnd - timeLoopStart
     }
-
-    doTiming(timeLoopStart)
-    updateViewCoords()
-    updateMassesGameCoords()
-    updateMassesCanvasCoords()
-    drawCanvas()
-    updateDisplay()
-
-    var timeLoopEnd = window.performance.now()
-    state.timing.msRenderTime = timeLoopEnd - timeLoopStart
-
-    // console.log(
-    //   "Game loop", state.loopCount,
-    //   "started", Math.round(timeLoopStart*1000)/1000,
-    //   "ended", Math.round(timeLoopEnd*1000)/1000,
-    //   "and took", Math.round((timeLoopEnd-timeLoopStart)*1000)/1000,
-    //   "ms"
-    // )
-    // console.log("View position is", state.view.pos.x, state.view.pos.y)
-    // console.log("View velocity is", state.view.vel.u, state.view.vel.v)
-
   }
 
   // RUN THE GAME!!!!
+
+  // Setup the initial game state
   setupState()
-  window.requestAnimationFrame(mainLoop)  // Start the mainLoop
+
+  // Setup monitors on the keyboard to monitor relevant keyboard presses
+  window.addEventListener('keydown', function(event){
+    var eventKeyboardCode = event.code
+    var monitoredCodeState = state.keysMonitored[eventKeyboardCode]
+    // Undefined if not monitored, true or false if monitored
+    if (monitoredCodeState===false) {
+      state.keysMonitored[eventKeyboardCode] = true
+    }
+  })
+  window.addEventListener('keyup', function(event){
+    var eventKeyboardCode = event.code
+    var monitoredCodeState = state.keysMonitored[eventKeyboardCode]
+    if (monitoredCodeState===true) {
+      state.keysMonitored[eventKeyboardCode] = false
+    }
+  })
+
+  // Finally... start the mainLoop
+  window.requestAnimationFrame(mainLoop)
 
 }
 
