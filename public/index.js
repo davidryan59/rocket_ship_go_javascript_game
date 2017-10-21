@@ -84,9 +84,13 @@ var playGame = function() {
   }
 
   var updateMassesCanvasCoords = function() {
+    var backZoomOut = 0
+    var backZoom = 0
     for (var mass of state.masses) {
       mapCoordsGameToCanvas(mass.gameCoords, mass.canvasMainCoords, 1)
-      mapCoordsGameToCanvas(mass.gameCoords, mass.canvasBackCoords, 0.9)
+      backZoomOut = mass.graphics.back.zoomOut
+      backZoomOut > 1 ? backZoom = 1/backZoomOut : backZoom = 0.9  // Sensible default
+      mapCoordsGameToCanvas(mass.gameCoords, mass.canvasBackCoords, backZoom)
     }
   }
 
@@ -113,7 +117,7 @@ var playGame = function() {
     var dRdR = dX*dX + dY*dY
     state.view.pos.x = prevX + dX / 50
     state.view.pos.y = prevY + dY / 50
-    state.view.zoom = 1/((1+dRdR)**0.03)
+    state.view.zoom = 1/((1+dRdR)**0.06)
 
     // state.view.pos.x = prevX + prevU * dT
     // state.view.pos.y = prevY + prevV * dT
@@ -148,16 +152,16 @@ var playGame = function() {
     var context = state.context
     for (var i in state.masses) {
       mass = state.masses[i]
-      context.strokeStyle = mass.colourBack.line
-      context.lineWidth = mass.colourBack.lineWidth
-      context.fillStyle = mass.colourBack.fill
+      context.strokeStyle = mass.graphics.back.strokeStyle
+      context.lineWidth = mass.graphics.back.lineWidth
+      context.fillStyle = mass.graphics.back.fillStyle
       drawLineSet(mass.canvasBackCoords)
     }
     for (var i in state.masses) {
       mass = state.masses[i]
-      context.strokeStyle = mass.colourMain.line
-      context.lineWidth = mass.colourMain.lineWidth
-      context.fillStyle = mass.colourMain.fill
+      context.strokeStyle = mass.graphics.main.strokeStyle
+      context.lineWidth = mass.graphics.main.lineWidth
+      context.fillStyle = mass.graphics.main.fillStyle
       drawLineSet(mass.canvasMainCoords)
     }
   }
@@ -215,14 +219,23 @@ var playGame = function() {
       var gameMass = {}
       gameMass.x = x
       gameMass.y = y
-      gameMass.colourMain = {}
-      gameMass.colourMain.line = "#440033"
-      gameMass.colourMain.lineWidth = 3
-      gameMass.colourMain.fill = "#662A00"
-      gameMass.colourBack = {}
-      gameMass.colourBack.line = "#775500"
-      gameMass.colourBack.lineWidth = 2
-      gameMass.colourBack.fill = "#997700"
+      gameMass.graphics = {}
+      // Foreground / Main rendered at zoom = zoomOut = 1
+      gameMass.graphics.main = {}
+      gameMass.graphics.main.strokeStyle = "#440033"
+      gameMass.graphics.main.lineWidth = 3
+      gameMass.graphics.main.fillStyle = "#662A00"
+      // Background rendered at higher zoomOut > 1  (zoomOut = 1/zoom)
+      gameMass.graphics.back = {}
+      gameMass.graphics.back.zoomOut = 1.1
+      gameMass.graphics.back.strokeStyle = "#775500"
+      gameMass.graphics.back.lineWidth = 2
+      gameMass.graphics.back.fillStyle = "#997700"
+      // Note: gameMasses will be rendered in the order they are stored!
+      // However, it will only look correct if the objects with
+      // higher zoomOuts are rendered first
+      // so there ought to be checking of order and sorting
+      // perhaps every 0.25 seconds (10 frames/loops or so)
       gameMass.angle = 0
       gameMass.maxRadius = maxRadius
       gameMass.moves = false
@@ -253,6 +266,7 @@ var playGame = function() {
       return gameMass
     }
 
+    // Make the game player
     var theJetman = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 30, 30)
     theJetman.angleRadii[1][1]=10
     theJetman.angleRadii[2][1]=18
@@ -263,12 +277,16 @@ var playGame = function() {
     theJetman.u = 40
     theJetman.v = 80
     theJetman.angVeloc = 15      // Degrees per second!
-    // theJetman.angleRadii[5][1]=40
-    // theJetman.angleRadii[6][1]=12
-    // theJetman.angleRadii[7][1]=10
-    // theJetman.angleRadii[8][1]=12
+    theJetman.graphics.main = {}
+    theJetman.graphics.main.strokeStyle = "#000000"
+    theJetman.graphics.main.lineWidth = 1
+    theJetman.graphics.main.fillStyle = "#0000FF"
+    theJetman.graphics.back = {}
+    theJetman.graphics.back.strokeStyle = "#FFFFFF"
+    theJetman.graphics.back.lineWidth = 2
+    theJetman.graphics.back.fillStyle = "#00FFFF"
 
-    // Use above function to actually create some test game masses
+    // Make some walls using the random mass
     var xMin = -50
     var xMax = 850
     var yMin = -50
@@ -276,14 +294,43 @@ var playGame = function() {
     var points = 19
     var maxRadius = 150
     var minRadius = 40
+    // Make the set of points first
+    // Then generate the wall elements in a random order
+    var wallCoordSet = []
     for (var x=xMin; x<=xMax; x+=100) {
-      addNewRandomGameMass(x, yMin, points, maxRadius, minRadius)
-      addNewRandomGameMass(x, yMax, points, maxRadius, minRadius)
+      wallCoordSet.push([x, yMin, Math.random()])
+      wallCoordSet.push([x, yMax, Math.random()])
     }
     for (var y=yMin; y<=yMax; y+=100) {
-      addNewRandomGameMass(xMin, y, points, maxRadius, minRadius)
-      addNewRandomGameMass(xMax, y, points, maxRadius, minRadius)
+      wallCoordSet.push([xMin, y, Math.random()])
+      wallCoordSet.push([xMax, y, Math.random()])
     }
+    wallCoordSet.sort(function(elt2, elt1){
+      return elt2[2] - elt1[2]
+    })
+    console.log(wallCoordSet)
+    var theMass = null
+    for (var i in wallCoordSet) {
+      theMass = addNewRandomGameMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius)
+      theMass.graphics.back.zoomOut = 1 + 2/(1 + 0.1*i)
+    }
+    // var numberOfPoints = wallCoordSet.length
+    // var pointsLeft = 0
+    // var randPointIndex = 0
+    // var theWallCoord = [0, 0]
+    // for (var i=0; i<numberOfPoints; i++) {
+    //   pointsLeft = numberOfPoints - i
+    //   randPointIndex = Math.round(pointsLeft*Math.random())
+    //   theWallCoord = wallCoordSet.splice(randPointIndex, 1)  // e.g. [[1, 2]]
+    //   theWallCoord = theWallCoord[0]                         // e.g. [1, 2]
+    //   console.log(theWallCoord)
+    //   console.log(wallCoordSet)
+    //   addNewRandomGameMass(theWallCoord[0], theWallCoord[1], points, maxRadius, minRadius)
+    // }
+    // console.log(gameMasses)
+
+
+
 
     // Use automation to finish setting up game masses
     for (var gameMass of gameMasses) {
