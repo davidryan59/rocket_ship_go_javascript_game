@@ -322,6 +322,9 @@ var playGame = function() {
     console.log(wallCoordSet)
     var theMass = null
     for (var i in wallCoordSet) {
+      points = 4 + Math.round(40*Math.random())
+      maxRadius = 60 + Math.round(130*Math.random())
+      minRadius = 20 + Math.round(0.5*maxRadius*Math.random())
       theMass = addNewRandomGameMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius)
       theMass.graphics.back.zoomOut = 1.05 + 0.5*(1-wallCoordSet[i][2]**0.5)
     }
@@ -348,24 +351,14 @@ var playGame = function() {
     theJetman.graphics.back.fillStyle = "#00FFFF"
 
     // Make some of the game masses rotate!
-    var moveIndices = [2, 4, 6, 8, 10, 12, 14]
+    var moveIndices = [2, 4, 6, 8, 10, 12, 14, 16]
     for (var i of moveIndices) {
       gameMasses[i].moves = true
       gameMasses[i].angVeloc = -30 + 60 * Math.random()  // deg/s
     }
 
-    // Make some of the game masses subject to gravity!
-    var moveIndices = [3, 5]
-    for (var i of moveIndices) {
-      gameMasses[i].moves = true
-      gameMasses[i].affectedByGravity = true
-      gameMasses[i].v = 200
-      gameMasses[i].u = -100 + 200 * Math.random()     // px/s
-      gameMasses[i].angVeloc = -20 + 40 * Math.random()  // deg/s
-    }
-
     // Make some of the game masses different colours!
-    var moveIndices = [2, 5, 7, 12]
+    var moveIndices = [2, 5, 7, 12, 15, 16, 17, 18]
     for (var i of moveIndices) {
       gameMasses[i].graphics.main.fillStyle = "#990044"
       gameMasses[i].graphics.main.strokeStyle = "#882200"
