@@ -186,6 +186,23 @@ var playGame = function() {
     }
   }
 
+  var fireBullet = function() {
+    var bullet = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 3, 10, 10)
+    bullet.moves = true
+    bullet.affectedByGravity = true
+    bullet.u = 0
+    bullet.v = 80
+    bullet.angVeloc = 15      // Degrees per second!
+    bullet.graphics.main = {}
+    bullet.graphics.main.strokeStyle = "#000000"
+    bullet.graphics.main.lineWidth = 1
+    bullet.graphics.main.fillStyle = "#0000FF"
+    bullet.graphics.back = {}
+    bullet.graphics.back.strokeStyle = "#FFFFFF"
+    bullet.graphics.back.lineWidth = 2
+    bullet.graphics.back.fillStyle = "#00FFFF"
+  }
+
   var respondToKeyboard = function() {
     if (state.fuel > 0) {
       if (state.keysMonitored.ArrowLeft) {
@@ -205,6 +222,17 @@ var playGame = function() {
         state.viewFollow.u += 10 * Math.sin(mult*state.viewFollow.angle)
         state.viewFollow.v += 10 * Math.cos(mult*state.viewFollow.angle)
         state.fuel -= 0.005
+      }
+    }
+    if (state.ammo > 0) {
+      if (state.keysMonitored.Space) {
+        fireBullet()
+        state.viewFollow.u -= 1000 * Math.sin(mult*state.viewFollow.angle)
+        state.viewFollow.v -= 1000 * Math.cos(mult*state.viewFollow.angle)
+        state.ammo--
+        state.keysMonitored.Space = false
+        // One bullet per SPACE press
+        // Deal with auto-repeat keydowns in future
       }
     }
     if (state.keysMonitored.KeyQ) {
@@ -359,38 +387,6 @@ var playGame = function() {
       gameMasses[i].graphics.back.strokeStyle = "#999999"
     }
 
-    // // Foreground / Main rendered at zoom = zoomOut = 1
-    // gameMass.graphics.main = {}
-    // gameMass.graphics.main.strokeStyle = "#440033"
-    // gameMass.graphics.main.lineWidth = 3
-    // gameMass.graphics.main.fillStyle = "#662A00"
-    // // Background rendered at higher zoomOut > 1  (zoomOut = 1/zoom)
-    // gameMass.graphics.back = {}
-    // gameMass.graphics.back.zoomOut = 1.1
-    // gameMass.graphics.back.strokeStyle = "#775500"
-    // gameMass.graphics.back.lineWidth = 2
-    // gameMass.graphics.back.fillStyle = "#997700"
-
-    // // Make some of the game masses brown colours!
-    // var moveIndices = [2, 5, 7, 12, 15, 16, 17, 18]
-    // for (var i of moveIndices) {
-    //   j =
-    //   gameMasses[i].graphics.main.fillStyle = "#990044"
-    //   gameMasses[i].graphics.main.strokeStyle = "#882200"
-    //   gameMasses[i].graphics.back.fillStyle = "#779900"
-    //   gameMasses[i].graphics.back.strokeStyle = "#008888"
-    // }
-    //
-    // // Make some of the game masses gold colours!
-    // var moveIndices = [2, 5, 7, 12, 15, 16, 17, 18]
-    // for (var i of moveIndices) {
-    //   gameMasses[i].graphics.main.fillStyle = "#990044"
-    //   gameMasses[i].graphics.main.strokeStyle = "#882200"
-    //   gameMasses[i].graphics.back.fillStyle = "#779900"
-    //   gameMasses[i].graphics.back.strokeStyle = "#008888"
-    // }
-
-
     // Make the game player
     var theJetman = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 41, 41)
     theJetman.angleRadii[1][1]=13
@@ -433,6 +429,7 @@ var playGame = function() {
     state.keysMonitored.ArrowUp = false
     state.keysMonitored.KeyQ = false
     state.keysMonitored.KeyP = false
+    state.keysMonitored.Space = false
 
     // Setup links to HTML items
     state.htmlElements = {}
@@ -446,8 +443,8 @@ var playGame = function() {
 
     // Special variables
     state.fuel = 100
+    state.ammo = 23
     // state.health = 100  // Future iterations!
-    // state.ammo = 1000
     // state.money = 0
     state.gravity = -120    // (Pixels per second per second!)
 
@@ -500,6 +497,7 @@ var playGame = function() {
   // Setup monitors on the keyboard to monitor relevant keyboard presses
   window.addEventListener('keydown', function(event){
     var eventKeyboardCode = event.code
+    console.log(eventKeyboardCode)
     var monitoredCodeState = state.keysMonitored[eventKeyboardCode]
     // Undefined if not monitored, true or false if monitored
     if (monitoredCodeState===false) {
