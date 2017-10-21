@@ -1,9 +1,9 @@
 var playGame = function() {
 
   var state = {}
+  var degreesToRadians = Math.PI / 180
 
   var updateMassGameCoords = function(mass) {
-    var degreesToRadians = Math.PI/180
     // Get state variables
     var grav = state.gravity        // Pixels per second per second
     var dT = state.timing.msBetweenLoops / 1000    // in seconds
@@ -183,24 +183,34 @@ var playGame = function() {
       state.htmlElements.anglePos.innerText = Math.round(state.viewFollow.angle)
       state.htmlElements.angleVel.innerText = Math.round(state.viewFollow.angVeloc)
       state.htmlElements.fuel.innerText = Math.round(state.fuel)
+      state.htmlElements.ammo.innerText = Math.round(state.ammo)
     }
   }
 
   var fireBullet = function() {
-    var bullet = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 3, 10, 10)
+    var bulletSides = 3 + Math.round(5 * Math.random())
+    var spin = -200 + 400 * Math.random()
+    var bulletX = state.viewFollow.x + 30 * Math.sin(degreesToRadians * state.viewFollow.angle)
+    var bulletY = state.viewFollow.y + 30 * Math.cos(degreesToRadians * state.viewFollow.angle)
+    var bullet = addNewRandomGameMass(bulletX, bulletY, bulletSides, 7, 7)
     bullet.moves = true
     bullet.affectedByGravity = true
-    bullet.u = 0
-    bullet.v = 80
-    bullet.angVeloc = 15      // Degrees per second!
+    bullet.u = state.viewFollow.u + 200 * Math.sin(degreesToRadians * state.viewFollow.angle)
+    bullet.v = state.viewFollow.v + 200 * Math.cos(degreesToRadians * state.viewFollow.angle)
+    bullet.angVeloc = spin
     bullet.graphics.main = {}
     bullet.graphics.main.strokeStyle = "#000000"
-    bullet.graphics.main.lineWidth = 1
-    bullet.graphics.main.fillStyle = "#0000FF"
+    bullet.graphics.main.lineWidth = 2
+    bullet.graphics.main.fillStyle = "#00FF00"
     bullet.graphics.back = {}
+    bullet.graphics.back.zoomOut = 1.03 + 0.05 * Math.random()
     bullet.graphics.back.strokeStyle = "#FFFFFF"
     bullet.graphics.back.lineWidth = 2
-    bullet.graphics.back.fillStyle = "#00FFFF"
+    bullet.graphics.back.fillStyle = "#FF00FF"
+    state.viewFollow.u -= 20 * Math.sin(degreesToRadians*state.viewFollow.angle)
+    state.viewFollow.v -= 20 * Math.cos(degreesToRadians*state.viewFollow.angle)
+    state.viewFollow.angVeloc -= spin/2
+    state.ammo--
   }
 
   var respondToKeyboard = function() {
@@ -218,18 +228,14 @@ var playGame = function() {
         // If deducting fuel, make it proportional to abs of angVeloc
       }
       if (state.keysMonitored.ArrowUp) {
-        var mult = Math.PI / 180
-        state.viewFollow.u += 10 * Math.sin(mult*state.viewFollow.angle)
-        state.viewFollow.v += 10 * Math.cos(mult*state.viewFollow.angle)
+        state.viewFollow.u += 10 * Math.sin(degreesToRadians*state.viewFollow.angle)
+        state.viewFollow.v += 10 * Math.cos(degreesToRadians*state.viewFollow.angle)
         state.fuel -= 0.005
       }
     }
     if (state.ammo > 0) {
       if (state.keysMonitored.Space) {
         fireBullet()
-        state.viewFollow.u -= 1000 * Math.sin(mult*state.viewFollow.angle)
-        state.viewFollow.v -= 1000 * Math.cos(mult*state.viewFollow.angle)
-        state.ammo--
         state.keysMonitored.Space = false
         // One bullet per SPACE press
         // Deal with auto-repeat keydowns in future
@@ -242,9 +248,69 @@ var playGame = function() {
       // // Taken out - this doesn't actually work - how to fix?
       // state.paused = !state.paused
     }
-
   }
 
+  var addNewRandomGameMass = function(x, y, points, maxRadius, minRadius) {
+    var gameMass = {}
+    gameMass.x = x
+    gameMass.y = y
+    gameMass.graphics = {}
+    // Foreground / Main rendered at zoom = zoomOut = 1
+    gameMass.graphics.main = {}
+    gameMass.graphics.main.fillStyle = "#555555"
+    gameMass.graphics.main.strokeStyle = "#333333"
+    gameMass.graphics.main.lineWidth = 3
+    // Background rendered at higher zoomOut > 1  (zoomOut = 1/zoom)
+    gameMass.graphics.back = {}
+    gameMass.graphics.back.zoomOut = 1.1
+    gameMass.graphics.back.fillStyle = "#999999"
+    gameMass.graphics.back.strokeStyle = "#777777"
+    gameMass.graphics.back.lineWidth = 2
+    // Note: state.masses will be rendered in the order they are stored!
+    // However, it will only look correct if the objects with
+    // higher zoomOuts are rendered first
+    // so there ought to be checking of order and sorting
+    // perhaps every 0.25 seconds (10 frames/loops or so)
+    gameMass.angle = 0
+    gameMass.maxRadius = maxRadius
+    gameMass.moves = false
+    gameMass.u = 0    // Anything which doesn't move should have u, v, angVeloc = 0
+    gameMass.v = 0
+    gameMass.angVeloc = 0
+    gameMass.affectedByGravity = false  // Things should only be affected by gravity if they move!
+    gameMass.angleRadii = []
+    // First element
+    var nextAngle = 0
+    var nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
+    var nextElt = [nextAngle, nextRadius]
+    gameMass.angleRadii.push(nextElt)
+    for (var i=1; i<points; i++) {
+      // Middle elements
+      nextAngle = 360 * i / points
+      nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
+      nextElt = [nextAngle, nextRadius]
+      gameMass.angleRadii.push(nextElt)
+    }
+    // Last element
+    nextAngle = 360
+    nextRadius = gameMass.angleRadii[0][1]
+    nextElt = [nextAngle, nextRadius]
+    gameMass.angleRadii.push(nextElt)
+    // Admin fields for game mass
+    !gameMass.maxRadius ? gameMass.maxRadius = 0 : null;
+    !gameMass.gameCoordsValid ? gameMass.gameCoordsValid = false : null
+    gameMass.gameCoords = gameMass.angleRadii.slice()   // Shallow copy! Need deep copy!
+    gameMass.canvasMainCoords = gameMass.angleRadii.slice()
+    gameMass.canvasBackCoords = gameMass.angleRadii.slice()
+    for (var i in gameMass.gameCoords) {
+      gameMass.gameCoords[i] = gameMass.gameCoords[i].slice()  // Deep copy done here
+      gameMass.canvasMainCoords[i] = gameMass.canvasMainCoords[i].slice()
+      gameMass.canvasBackCoords[i] = gameMass.canvasBackCoords[i].slice()
+    }
+    // Add to game masses
+    state.masses.push(gameMass)
+    return gameMass
+  }
 
   var setupState = function() {
     state.continueLooping = true
@@ -274,57 +340,9 @@ var playGame = function() {
     // x, y are positions in pixels
     // u, v are velocities in pixels per second
 
-    var gameMasses = []
-    var addNewRandomGameMass = function(x, y, points, maxRadius, minRadius) {
-      var gameMass = {}
-      gameMass.x = x
-      gameMass.y = y
-      gameMass.graphics = {}
-      // Foreground / Main rendered at zoom = zoomOut = 1
-      gameMass.graphics.main = {}
-      gameMass.graphics.main.strokeStyle = "#333333"
-      gameMass.graphics.main.lineWidth = 3
-      gameMass.graphics.main.fillStyle = "#555555"
-      // Background rendered at higher zoomOut > 1  (zoomOut = 1/zoom)
-      gameMass.graphics.back = {}
-      gameMass.graphics.back.zoomOut = 1.1
-      gameMass.graphics.back.strokeStyle = "#777777"
-      gameMass.graphics.back.lineWidth = 2
-      gameMass.graphics.back.fillStyle = "#999999"
-      // Note: gameMasses will be rendered in the order they are stored!
-      // However, it will only look correct if the objects with
-      // higher zoomOuts are rendered first
-      // so there ought to be checking of order and sorting
-      // perhaps every 0.25 seconds (10 frames/loops or so)
-      gameMass.angle = 0
-      gameMass.maxRadius = maxRadius
-      gameMass.moves = false
-      gameMass.u = 0    // Anything which doesn't move should have u, v, angVeloc = 0
-      gameMass.v = 0
-      gameMass.angVeloc = 0
-      gameMass.affectedByGravity = false  // Things should only be affected by gravity if they move!
-      gameMass.angleRadii = []
-      // First element
-      var nextAngle = 0
-      var nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
-      var nextElt = [nextAngle, nextRadius]
-      gameMass.angleRadii.push(nextElt)
-      for (var i=1; i<points; i++) {
-        // Middle elements
-        nextAngle = 360 * i / points
-        nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
-        nextElt = [nextAngle, nextRadius]
-        gameMass.angleRadii.push(nextElt)
-      }
-      // Last element
-      nextAngle = 360
-      nextRadius = gameMass.angleRadii[0][1]
-      nextElt = [nextAngle, nextRadius]
-      gameMass.angleRadii.push(nextElt)
-      // Add to game masses
-      gameMasses.push(gameMass)
-      return gameMass
-    }
+    // Start the game masses array.
+    // This contains: Jetman, walls, bullets, enemies, etc.
+    state.masses = []
 
     // Make some walls using the random mass
     var xMin = -100
@@ -360,31 +378,31 @@ var playGame = function() {
     }
 
     var j=0
-    var jMax = gameMasses.length - 1
+    var jMax = state.masses.length - 1
 
     // Make some of the game masses rotate!
     for (var i=0; i<7; i++) {
       j = Math.round(jMax * Math.random())
-      gameMasses[j].moves = true
-      gameMasses[j].angVeloc = -30 + 60 * Math.random()  // deg/s
+      state.masses[j].moves = true
+      state.masses[j].angVeloc = -30 + 60 * Math.random()  // deg/s
     }
 
     // Make some of the game masses dark brown!
     for (var i=0; i<9; i++) {
       j = Math.round(jMax * Math.random())
-      gameMasses[i].graphics.main.fillStyle = "#553311"
-      gameMasses[i].graphics.main.strokeStyle = "#331100"
-      gameMasses[i].graphics.back.fillStyle = "#AA9988"
-      gameMasses[i].graphics.back.strokeStyle = "#998877"
+      state.masses[i].graphics.main.fillStyle = "#553311"
+      state.masses[i].graphics.main.strokeStyle = "#331100"
+      state.masses[i].graphics.back.fillStyle = "#AA9988"
+      state.masses[i].graphics.back.strokeStyle = "#998877"
     }
 
     // Make some of the game masses gold!
     for (var i=0; i<3; i++) {
       j = Math.round(jMax * Math.random())
-      gameMasses[i].graphics.main.fillStyle = "#888011"
-      gameMasses[i].graphics.main.strokeStyle = "#552222"
-      gameMasses[i].graphics.back.fillStyle = "#A8AA88"
-      gameMasses[i].graphics.back.strokeStyle = "#999999"
+      state.masses[i].graphics.main.fillStyle = "#888011"
+      state.masses[i].graphics.main.strokeStyle = "#552222"
+      state.masses[i].graphics.back.fillStyle = "#A8AA88"
+      state.masses[i].graphics.back.strokeStyle = "#999999"
     }
 
     // Make the game player
@@ -407,21 +425,6 @@ var playGame = function() {
     theJetman.graphics.back.lineWidth = 2
     theJetman.graphics.back.fillStyle = "#00FFFF"
 
-    // DO AFTER ALL MASSES CREATED
-    // Use automation on Jetman, Masses, etc to finish setting up game masses
-    for (var gameMass of gameMasses) {
-      (!gameMass.maxRadius) ? gameMass.maxRadius = 0 : null;
-      (!gameMass.gameCoordsValid) ? gameMass.gameCoordsValid = false : null
-      gameMass.gameCoords = gameMass.angleRadii.slice()   // Shallow copy! Need deep copy!
-      gameMass.canvasMainCoords = gameMass.angleRadii.slice()
-      gameMass.canvasBackCoords = gameMass.angleRadii.slice()
-      for (var i in gameMass.gameCoords) {
-        gameMass.gameCoords[i] = gameMass.gameCoords[i].slice()  // Deep copy done here
-        gameMass.canvasMainCoords[i] = gameMass.canvasMainCoords[i].slice()
-        gameMass.canvasBackCoords[i] = gameMass.canvasBackCoords[i].slice()
-      }
-    }
-
     // Monitor key presses
     state.keysMonitored = {}
     state.keysMonitored.ArrowLeft = false
@@ -440,6 +443,7 @@ var playGame = function() {
     state.htmlElements.anglePos = document.querySelector("#ang-pos")
     state.htmlElements.angleVel = document.querySelector("#ang-vel")
     state.htmlElements.fuel = document.querySelector("#fuel-left")
+    state.htmlElements.ammo = document.querySelector("#ammo-left")
 
     // Special variables
     state.fuel = 100
@@ -452,7 +456,6 @@ var playGame = function() {
     state.timing = timing
     state.canvas = canvas
     state.context = context
-    state.masses = gameMasses
     state.view = view
     state.viewFollow = theJetman
 
@@ -497,7 +500,7 @@ var playGame = function() {
   // Setup monitors on the keyboard to monitor relevant keyboard presses
   window.addEventListener('keydown', function(event){
     var eventKeyboardCode = event.code
-    console.log(eventKeyboardCode)
+    // console.log(eventKeyboardCode)
     var monitoredCodeState = state.keysMonitored[eventKeyboardCode]
     // Undefined if not monitored, true or false if monitored
     if (monitoredCodeState===false) {
