@@ -106,16 +106,16 @@ var playGame = function() {
   var updateViewCoords = function() {
     var prevX = state.view.pos.x    // Pixels
     var prevY = state.view.pos.y    // Pixels
-    var followX = state.viewFollow.x
-    var followY = state.viewFollow.y
+    var followX = state.shipMass.x
+    var followY = state.shipMass.y
     var dX = followX-prevX
     var dY = followY-prevY
-    var d2 = state.viewFollow.u**2 + state.viewFollow.v**2
-    // Sometimes view can stay behind Jetman so far
-    // he's off the screen! Fix this.
+    var d2 = state.shipMass.u**2 + state.shipMass.v**2
+    // Sometimes view can stay behind the player ship so far
+    // it is off the screen! Fix this.
     state.view.pos.x = prevX + dX / 15
     state.view.pos.y = prevY + dY / 15
-    // When Jetman stops momentarily, the screen zooms in and out
+    // When the player ship stops momentarily, the screen zooms in and out
     // very fast. Fix this.
     state.view.zoom = 0.92+0.08/(1+0.0001*d2)
   }
@@ -161,6 +161,21 @@ var playGame = function() {
     }
   }
 
+  var drawStars = function() {
+    var context = state.context
+    mapCoordsGameToCanvas(state.stars.gameCoords, state.stars.canvasCoords, 1/state.stars.zoomOut)
+    var starX = 0   // These to be overwritten
+    var starY = 0
+    var starCol = "#FFF"
+    for (var i in state.stars.canvasCoords) {
+      starX = state.stars.canvasCoords[i][0]
+      starY = state.stars.canvasCoords[i][1]
+      starCol = state.stars.colours[i]
+      context.fillStyle = starCol
+      context.fillRect(starX, starY, 2, 2)
+    }
+  }
+
   var drawCanvas = function(){
     // Set up drawing
     var canvasLeft = state.canvas.bounds.left
@@ -169,19 +184,22 @@ var playGame = function() {
     var canvasDown = state.canvas.bounds.down
     var context = state.context
     // Do drawing
+    // context.fillStyle="black";
+    // context.fillRect(canvasLeft, canvasUp, canvasRight-canvasLeft, canvasDown-canvasUp)
     context.clearRect(canvasLeft, canvasUp, canvasRight-canvasLeft, canvasDown-canvasUp)
+    drawStars()
     drawMassesOntoCanvas()
   }
 
   var updateDisplay = function(){
     if (state.loopCount % 7 === 0) {
       state.timing.renderTimeElt.innerText = Math.round(state.timing.msRenderTime )
-      state.htmlElements.x.innerText = Math.round(state.viewFollow.x)
-      state.htmlElements.y.innerText = Math.round(state.viewFollow.y)
-      state.htmlElements.u.innerText = Math.round(state.viewFollow.u)
-      state.htmlElements.v.innerText = Math.round(state.viewFollow.v)
-      state.htmlElements.anglePos.innerText = Math.round(state.viewFollow.angle)
-      state.htmlElements.angleVel.innerText = Math.round(state.viewFollow.angVeloc)
+      state.htmlElements.x.innerText = Math.round(state.shipMass.x)
+      state.htmlElements.y.innerText = Math.round(state.shipMass.y)
+      state.htmlElements.u.innerText = Math.round(state.shipMass.u)
+      state.htmlElements.v.innerText = Math.round(state.shipMass.v)
+      state.htmlElements.anglePos.innerText = Math.round(state.shipMass.angle)
+      state.htmlElements.angleVel.innerText = Math.round(state.shipMass.angVeloc)
       state.htmlElements.fuel.innerText = Math.round(state.fuel)
       state.htmlElements.ammo.innerText = Math.round(state.ammo)
     }
@@ -195,54 +213,54 @@ var playGame = function() {
     var bulletSpinRecoil = 0.5
     var bulletSides = 3 + Math.round(30 * Math.random()**10)   // Bias towards fewer edges
     var spin = 400 * (-0.5 + Math.random())
-    var bulletX = state.viewFollow.x + 50 * Math.sin(degreesToRadians * state.viewFollow.angle)
-    var bulletY = state.viewFollow.y + 50 * Math.cos(degreesToRadians * state.viewFollow.angle)
+    var bulletX = state.shipMass.x + 50 * Math.sin(degreesToRadians * state.shipMass.angle)
+    var bulletY = state.shipMass.y + 50 * Math.cos(degreesToRadians * state.shipMass.angle)
     var bullet = addNewRandomGameMass(bulletX, bulletY, bulletSides, bulletMaxRadius, bulletMaxRadius-bulletDeformity)
     bullet.moves = true
     bullet.affectedByGravity = true
-    bullet.u = state.viewFollow.u + bulletRelativeSpeed * Math.sin(degreesToRadians * state.viewFollow.angle)
-    bullet.v = state.viewFollow.v + bulletRelativeSpeed * Math.cos(degreesToRadians * state.viewFollow.angle)
+    bullet.u = state.shipMass.u + bulletRelativeSpeed * Math.sin(degreesToRadians * state.shipMass.angle)
+    bullet.v = state.shipMass.v + bulletRelativeSpeed * Math.cos(degreesToRadians * state.shipMass.angle)
     bullet.angVeloc = spin
     bullet.graphics.main = {}
-    bullet.graphics.main.fillStyle = "#00FF00"
-    bullet.graphics.main.strokeStyle = "#000000"
+    bullet.graphics.main.fillStyle = "#0F0"
+    bullet.graphics.main.strokeStyle = "#FFF"
     bullet.graphics.main.lineWidth = 3
     bullet.graphics.back = {}
     bullet.graphics.back.zoomOut = 1.03 + 0.05 * Math.random()
-    bullet.graphics.back.fillStyle = "#FF00FF"
-    bullet.graphics.back.strokeStyle = "#FFFFFF"
+    bullet.graphics.back.fillStyle = "#F0F"
+    bullet.graphics.back.strokeStyle = "#888"
     bullet.graphics.back.lineWidth = 3
-    if (Math.random()<0.005) {
-      bullet.graphics.back.fillStyle = "#FF0000"
-      bullet.graphics.back.strokeStyle = "#FFFFFF"
+    if (Math.random()<0.015) {
+      bullet.graphics.back.fillStyle = "#F00"
+      bullet.graphics.back.strokeStyle = "#FFF"
     }
-    if (Math.random()<0.001) {
-      bullet.graphics.main.fillStyle = "#FFFF00"
-      bullet.graphics.main.strokeStyle = "#0000FF"
+    if (Math.random()<0.004) {
+      bullet.graphics.main.fillStyle = "#FF0"
+      bullet.graphics.main.strokeStyle = "#00F"
     }
-    state.viewFollow.u -= bulletVelocRecoil * Math.sin(degreesToRadians*state.viewFollow.angle)
-    state.viewFollow.v -= bulletVelocRecoil * Math.cos(degreesToRadians*state.viewFollow.angle)
-    state.viewFollow.angVeloc -= bulletSpinRecoil * spin
+    state.shipMass.u -= bulletVelocRecoil * Math.sin(degreesToRadians*state.shipMass.angle)
+    state.shipMass.v -= bulletVelocRecoil * Math.cos(degreesToRadians*state.shipMass.angle)
+    state.shipMass.angVeloc -= bulletSpinRecoil * spin
     state.ammo--
   }
 
   var respondToKeyboard = function() {
     if (state.fuel > 0) {
       if (state.keysMonitored.ArrowLeft) {
-        state.viewFollow.angVeloc -= 15
+        state.shipMass.angVeloc -= 15
         state.fuel -= 0.001
       }
       if (state.keysMonitored.ArrowRight) {
-        state.viewFollow.angVeloc += 15
+        state.shipMass.angVeloc += 15
         state.fuel -= 0.001
       }
       if (!state.keysMonitored.ArrowLeft && !state.keysMonitored.ArrowRight) {
-        state.viewFollow.angVeloc *= 0.92
+        state.shipMass.angVeloc *= 0.92
         // If deducting fuel, make it proportional to abs of angVeloc
       }
       if (state.keysMonitored.ArrowUp) {
-        state.viewFollow.u += 10 * Math.sin(degreesToRadians*state.viewFollow.angle)
-        state.viewFollow.v += 10 * Math.cos(degreesToRadians*state.viewFollow.angle)
+        state.shipMass.u += 10 * Math.sin(degreesToRadians*state.shipMass.angle)
+        state.shipMass.v += 10 * Math.cos(degreesToRadians*state.shipMass.angle)
         state.fuel -= 0.005
       }
     }
@@ -269,15 +287,15 @@ var playGame = function() {
     gameMass.y = y
     gameMass.graphics = {}
     // Foreground / Main rendered at zoom = zoomOut = 1
-    gameMass.graphics.main = {}
-    gameMass.graphics.main.fillStyle = "#555555"
-    gameMass.graphics.main.strokeStyle = "#333333"
-    gameMass.graphics.main.lineWidth = 3
     // Background rendered at higher zoomOut > 1  (zoomOut = 1/zoom)
+    gameMass.graphics.main = {}
     gameMass.graphics.back = {}
     gameMass.graphics.back.zoomOut = 1.1
-    gameMass.graphics.back.fillStyle = "#999999"
-    gameMass.graphics.back.strokeStyle = "#777777"
+    gameMass.graphics.main.fillStyle = "#999"
+    gameMass.graphics.main.strokeStyle = "#AC9"
+    gameMass.graphics.main.lineWidth = 3
+    gameMass.graphics.back.fillStyle = "#444"
+    gameMass.graphics.back.strokeStyle = "#669"
     gameMass.graphics.back.lineWidth = 2
     // Note: state.masses will be rendered in the order they are stored!
     // However, it will only look correct if the objects with
@@ -354,7 +372,7 @@ var playGame = function() {
     // u, v are velocities in pixels per second
 
     // Start the game masses array.
-    // This contains: Jetman, walls, bullets, enemies, etc.
+    // This contains: the player ship, walls, bullets, enemies, etc.
     state.masses = []
 
     // Make some walls using the random mass
@@ -403,40 +421,40 @@ var playGame = function() {
     // Make some of the game masses dark brown!
     for (var i=0; i<9; i++) {
       j = Math.round(jMax * Math.random())
-      state.masses[i].graphics.main.fillStyle = "#553311"
-      state.masses[i].graphics.main.strokeStyle = "#331100"
-      state.masses[i].graphics.back.fillStyle = "#AA9988"
-      state.masses[i].graphics.back.strokeStyle = "#998877"
+      state.masses[i].graphics.main.fillStyle = "#997755"
+      state.masses[i].graphics.main.strokeStyle = "#AA6655"
+      state.masses[i].graphics.back.fillStyle = "#664422"
+      state.masses[i].graphics.back.strokeStyle = "#999922"
     }
 
     // Make some of the game masses gold!
     for (var i=0; i<3; i++) {
       j = Math.round(jMax * Math.random())
-      state.masses[i].graphics.main.fillStyle = "#888011"
-      state.masses[i].graphics.main.strokeStyle = "#552222"
-      state.masses[i].graphics.back.fillStyle = "#A8AA88"
-      state.masses[i].graphics.back.strokeStyle = "#999999"
+      state.masses[i].graphics.main.fillStyle = "#998811"
+      state.masses[i].graphics.main.strokeStyle = "#AAAAEE"
+      state.masses[i].graphics.back.fillStyle = "#665511"
+      state.masses[i].graphics.back.strokeStyle = "#779977"
     }
 
     // Make the game player
-    var theJetman = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 41, 41)
-    theJetman.angleRadii[1][1]=13
-    theJetman.angleRadii[2][1]=23
-    theJetman.angleRadii[3][1]=23
-    theJetman.angleRadii[4][1]=13
-    theJetman.moves = true
-    theJetman.affectedByGravity = true
-    theJetman.u = 40
-    theJetman.v = 80
-    theJetman.angVeloc = 15      // Degrees per second!
-    theJetman.graphics.main = {}
-    theJetman.graphics.main.strokeStyle = "#000000"
-    theJetman.graphics.main.lineWidth = 1
-    theJetman.graphics.main.fillStyle = "#0000FF"
-    theJetman.graphics.back = {}
-    theJetman.graphics.back.strokeStyle = "#FFFFFF"
-    theJetman.graphics.back.lineWidth = 2
-    theJetman.graphics.back.fillStyle = "#00FFFF"
+    var playerShip = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 41, 41)
+    playerShip.angleRadii[1][1]=13
+    playerShip.angleRadii[2][1]=23
+    playerShip.angleRadii[3][1]=23
+    playerShip.angleRadii[4][1]=13
+    playerShip.moves = true
+    playerShip.affectedByGravity = true
+    playerShip.u = 40
+    playerShip.v = 80
+    playerShip.angVeloc = 15      // Degrees per second!
+    playerShip.graphics.main = {}
+    playerShip.graphics.back = {}
+    playerShip.graphics.main.fillStyle = "#44F"
+    playerShip.graphics.main.strokeStyle = "#ACF"
+    playerShip.graphics.main.lineWidth = 2
+    playerShip.graphics.back.fillStyle = "#035"
+    playerShip.graphics.back.strokeStyle = "#555"
+    playerShip.graphics.back.lineWidth = 2
 
     // Monitor key presses
     state.keysMonitored = {}
@@ -465,12 +483,32 @@ var playGame = function() {
     // state.money = 0
     state.gravity = -120    // (Pixels per second per second!)
 
+    state.stars = []
+    state.stars.gameCoords = []
+    state.stars.canvasCoords = []
+    state.stars.colours = []
+    state.stars.zoomOut = 10     // Make stars 20 times as far away as foreground
+    var starX = 0
+    var starY = 0
+    var starMaxCoord = 20000
+    var numberOfStars = 1000
+    var starColours = ["#FFF", "#999", "#FCC", "#FDB", "#FFA", "#4DF", "#AAF"]
+    var colourIndex = 0
+    for (var i=0; i<numberOfStars; i++) {
+      starX = starMaxCoord * (-0.5+Math.random())
+      starY = starMaxCoord * (-0.5+Math.random())
+      state.stars.gameCoords.push([starX, starY])
+      state.stars.canvasCoords.push([starX, starY])   // Will be overwritten!
+      colourIndex = Math.round(starColours.length * Math.random())
+      state.stars.colours.push(starColours[colourIndex])
+    }
+
     // Store them all in the state
     state.timing = timing
     state.canvas = canvas
     state.context = context
     state.view = view
-    state.viewFollow = theJetman
+    state.shipMass = playerShip
 
     // console.log(state)
 
