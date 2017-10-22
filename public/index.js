@@ -52,11 +52,14 @@ var playGame = function() {
     }
   }
 
-  var mapCoordsGameToCanvas = function(gameCoordArray, canvasCoordArray, extraZoom) {
+  var mapCoordsGameToCanvas = function(gameCoordArray, canvasCoordArray, extraZoom, wrapIndep) {
     // Use gameCoordArray and current game state
     // to recalculate and overwrite the viewCoords
     // Want the two arrays to be the same size
     // which is an array of size N, of arrays of size 2
+
+    // Use wrapIndep only if different coordinates should be wrapped independently,
+    // e.g. for the stars background.
 
     var viewMidX = state.view.pos.x
     var viewMidY = state.view.pos.y
@@ -65,6 +68,15 @@ var playGame = function() {
 
     var canvasMidX = state.canvas.centre.x
     var canvasMidY = state.canvas.centre.y
+
+    // Wrapping coordinates
+    // Need the world to have width and height
+    // at least 2 (maybe 3) times as big as the screen
+    // Then the canvas is wrapped around successfully
+    var actualWrapX = state.wrapCoords.x * overallZoom
+    var actualWrapY = state.wrapCoords.y * overallZoom
+    var canvasWrapX = null
+    var canvasWrapY = null
 
     var gameCoord = [0, 0]
     var gameX = 0
@@ -78,7 +90,14 @@ var playGame = function() {
       gameY = gameCoord[1]
       canvasX = canvasMidX + overallZoom*(gameX-viewMidX)    // Game coords start in bottom left, but
       canvasY = canvasMidY - overallZoom*(gameY-viewMidY)    // Canvas coords start in top left
-      canvasCoord = [canvasX, canvasY]
+
+      if (i===0 || wrapIndep===true) {
+        canvasWrapX = Math.round((canvasX-canvasMidX)/actualWrapX)
+        canvasWrapY = Math.round((canvasY-canvasMidY)/actualWrapY)
+      }
+
+      canvasCoord = [canvasX - actualWrapX * canvasWrapX, canvasY - actualWrapY * canvasWrapY]
+      // canvasCoord = [canvasX, canvasY]   // This is the unwrapped version!
       canvasCoordArray[i] = canvasCoord
     }
   }
@@ -113,11 +132,11 @@ var playGame = function() {
     var d2 = state.shipMass.u**2 + state.shipMass.v**2
     // Sometimes view can stay behind the player ship so far
     // it is off the screen! Fix this.
-    state.view.pos.x = prevX + dX / 15
-    state.view.pos.y = prevY + dY / 15
+    state.view.pos.x = prevX + dX / 5
+    state.view.pos.y = prevY + dY / 5
     // When the player ship stops momentarily, the screen zooms in and out
     // very fast. Fix this.
-    state.view.zoom = 0.92+0.08/(1+0.0001*d2)
+    state.view.zoom = 1  //0.92+0.08/(1+0.0001*d2)
   }
 
   var drawLineSet = function(coordsArray){
@@ -163,7 +182,9 @@ var playGame = function() {
 
   var drawStars = function() {
     var context = state.context
-    mapCoordsGameToCanvas(state.stars.gameCoords, state.stars.canvasCoords, 1/state.stars.zoomOut)
+    mapCoordsGameToCanvas(state.stars.gameCoords, state.stars.canvasCoords, 1/state.stars.zoomOut, true)
+    // the 'true' on the end does the canvas wrapping independently for each star
+    // unlike most objects in the game (e.g. solid masses) which wrap together.
     var starX = 0   // These to be overwritten
     var starY = 0
     var starCol = "#FFF"
@@ -350,6 +371,14 @@ var playGame = function() {
     state.paused = false
     state.loopCount = 0
 
+    state.wrapCoords = {}
+    state.wrapCoords.x = 5000
+    state.wrapCoords.y = 3000
+    // Currently (2017_10_22) the screen is fixed at 1200x675 px (16:9 aspect ratio)
+    // Each of the dimensions for wrapCoords here needs to be significantly bigger
+    // than the screen dimension
+    // Also, the stars will be very near unless these dimensions are big enough!
+
     // Setup variables for game
     var timing = {
       prevLoopStart: window.performance.now(),    // dummy data
@@ -368,7 +397,9 @@ var playGame = function() {
     var boundDown = canvasElt.height
     var canvasBounds = {left: boundLeft, right: boundRight, up: boundUp, down: boundDown}
     var canvasCentre = {x: (boundLeft+boundRight)/2, y: (boundUp+boundDown)/2}
-    var canvas = {elt: canvasElt, bounds: canvasBounds, centre: canvasCentre}
+    var canvasSize = {x: boundRight-boundLeft, y: boundDown-boundUp}
+    var canvas = {elt: canvasElt, bounds: canvasBounds, centre: canvasCentre, size: canvasSize}
+    state.canvas = canvas
     var view = {pos: {x: canvasCentre.x, y: canvasCentre.y}, zoom: 1}
     // x, y are positions in pixels
     // u, v are velocities in pixels per second
@@ -492,16 +523,23 @@ var playGame = function() {
     state.stars.sizes = []
     var minSize = 1
     var maxSize = 4
-    state.stars.zoomOut = 10     // Make stars 20 times as far away as foreground
+    state.stars.zoomOut = 0.75 * Math.min(
+      state.wrapCoords.x / state.canvas.size.x,
+      state.wrapCoords.y / state.canvas.size.y
+    )
+    // Note: this factor of 0.75 (3/4) means that
+    // the most the view can zoom out during gameplay is 4/3
+    // otherwise stars start disappearing off the sides!
     var starX = 0
     var starY = 0
-    var starMaxCoord = 20000
+    var starMaxCoordX = state.wrapCoords.x
+    var starMaxCoordY = state.wrapCoords.y
     var numberOfStars = 1000
     var starColours = ["#FFF", "#999", "#FCC", "#FDB", "#FFA", "#4DF", "#AAF"]
     var colourIndex = 0
     for (var i=0; i<numberOfStars; i++) {
-      starX = starMaxCoord * (-0.5+Math.random())
-      starY = starMaxCoord * (-0.5+Math.random())
+      starX = starMaxCoordX * (-0.5+Math.random())
+      starY = starMaxCoordY * (-0.5+Math.random())
       state.stars.gameCoords.push([starX, starY])
       state.stars.canvasCoords.push([starX, starY])   // Will be overwritten!
       colourIndex = Math.round(starColours.length * Math.random())
@@ -511,7 +549,6 @@ var playGame = function() {
 
     // Store them all in the state
     state.timing = timing
-    state.canvas = canvas
     state.context = context
     state.view = view
     state.shipMass = playerShip
