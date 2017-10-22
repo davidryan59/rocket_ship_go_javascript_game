@@ -167,12 +167,14 @@ var playGame = function() {
     var starX = 0   // These to be overwritten
     var starY = 0
     var starCol = "#FFF"
+    var starSize = 2
     for (var i in state.stars.canvasCoords) {
       starX = state.stars.canvasCoords[i][0]
       starY = state.stars.canvasCoords[i][1]
       starCol = state.stars.colours[i]
+      starSize = state.stars.sizes[i]
       context.fillStyle = starCol
-      context.fillRect(starX, starY, 2, 2)
+      context.fillRect(starX, starY, starSize, starSize)
     }
   }
 
@@ -487,6 +489,9 @@ var playGame = function() {
     state.stars.gameCoords = []
     state.stars.canvasCoords = []
     state.stars.colours = []
+    state.stars.sizes = []
+    var minSize = 1
+    var maxSize = 4
     state.stars.zoomOut = 10     // Make stars 20 times as far away as foreground
     var starX = 0
     var starY = 0
@@ -501,6 +506,7 @@ var playGame = function() {
       state.stars.canvasCoords.push([starX, starY])   // Will be overwritten!
       colourIndex = Math.round(starColours.length * Math.random())
       state.stars.colours.push(starColours[colourIndex])
+      state.stars.sizes.push(minSize + (maxSize-minSize)*Math.random()**2)
     }
 
     // Store them all in the state
