@@ -238,9 +238,10 @@ var playGame = function() {
     var spin = 400 * (-0.5 + Math.random())
     var bulletX = state.shipMass.x + 50 * Math.sin(degreesToRadians * state.shipMass.angle)
     var bulletY = state.shipMass.y + 50 * Math.cos(degreesToRadians * state.shipMass.angle)
-    var bullet = addNewRandomGameMass(bulletX, bulletY, bulletSides, bulletMaxRadius, bulletMaxRadius-bulletDeformity)
+    var bullet = addNewRandomGameMass(bulletX, bulletY, bulletSides, bulletMaxRadius, bulletMaxRadius-bulletDeformity, 3)
     bullet.moves = true
     bullet.affectedByGravity = true
+    bullet.isWall = false
     bullet.u = state.shipMass.u + bulletRelativeSpeed * Math.sin(degreesToRadians * state.shipMass.angle)
     bullet.v = state.shipMass.v + bulletRelativeSpeed * Math.cos(degreesToRadians * state.shipMass.angle)
     bullet.angVeloc = spin
@@ -265,6 +266,98 @@ var playGame = function() {
     state.shipMass.v -= bulletVelocRecoil * Math.cos(degreesToRadians*state.shipMass.angle)
     state.shipMass.angVeloc -= bulletSpinRecoil * spin
     state.ammo--
+  }
+
+  var checkIfTrulyCollided = function(i, j) {
+    // Maximum radii coincide
+    // Might or might not be a collision
+    // For now - assume there is!
+    // More work needed here!
+    return true
+  }
+
+  var markAsCollided = function(i, j) {
+    // Mark i as having collided with j
+    state.masses[i].collisionWith.index = j
+    state.masses[i].collisionWith.mass = state.masses[j].mass
+    state.masses[i].collisionWith.u = state.masses[j].u
+    state.masses[i].collisionWith.v = state.masses[j].v
+    state.masses[i].collisionWith.angVeloc = state.masses[j].angVeloc
+    // Mark j as having collided with i
+    state.masses[j].collisionWith.index = i
+    state.masses[j].collisionWith.mass = state.masses[i].mass
+    state.masses[j].collisionWith.u = state.masses[i].u
+    state.masses[j].collisionWith.v = state.masses[i].v
+    state.masses[j].collisionWith.angVeloc = state.masses[i].angVeloc
+  }
+
+  var findCollisionsBetweenMasses = function() {
+    var xi = 0
+    var xj = 0
+    var yi = 0
+    var yj = 0
+    var ri = 0
+    var rj = 0
+    var wrapX = state.wrapCoords.x
+    var wrapY = state.wrapCoords.y
+    var countMasses = state.masses.length
+    for (var i=0; i<countMasses; i++) {
+      if (state.masses[i].collisionWith.index === null) {
+        xi = state.masses[i].x
+        yi = state.masses[i].y
+        ri = state.masses[i].maxRadius
+        for (var j=i+1; j<countMasses; j++) {
+          if (state.masses[j].collisionWith.index === null) {
+            // Ignore wall-wall collisions at the moment
+            if (!(state.masses[i].isWall && state.masses[j].isWall)) {
+              xj = state.masses[j].x
+              yj = state.masses[j].y
+              rj = state.masses[j].maxRadius
+              xDiff = Math.abs(xj-xi) % wrapX
+              yDiff = Math.abs(yj-yi) % wrapY
+              if (xDiff**2 + yDiff**2 < (ri+rj)**2) {
+                if (checkIfTrulyCollided(i, j)) {
+                  markAsCollided(i, j)
+                  break
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  var dealWithCollision = function(mass) {
+    // Angular velocity currently not changed
+    // Here are the relevant variables for elastic collisions
+    var m1 = mass.mass
+    var u1 = mass.u
+    var v1 = mass.v
+    var m2 = mass.collisionWith.mass
+    var u2 = mass.collisionWith.u
+    var v2 = mass.collisionWith.v
+    var massSum = m1 + m2
+    // Change the variables as appropriate
+    mass.u = (u1 * (m1-m2) + 2*m2*u2 ) / (m1+m2)
+    mass.v = (v1 * (m1-m2) + 2*m2*v2 ) / (m1+m2)
+    // Dealt with collision now. Mark it as not collided
+    mass.collisionWith.index = null
+    // Could also reset the other variables here,
+    // but that's less important.
+  }
+
+  var dealWithCollisions = function() {
+    // state.masses[i].collisionWith.index = j
+    // state.masses[i].collisionWith.mass = state.masses[j].mass
+    // state.masses[i].collisionWith.u = state.masses[j].u
+    // state.masses[i].collisionWith.v = state.masses[j].v
+    // state.masses[i].collisionWith.angVeloc = state.masses[j].angVeloc
+    for (var mass of state.masses) {
+      if (mass.collisionWith.index !== null) {
+        dealWithCollision(mass)
+      }
+    }
   }
 
   var respondToKeyboard = function() {
@@ -304,8 +397,33 @@ var playGame = function() {
     }
   }
 
-  var addNewRandomGameMass = function(x, y, points, maxRadius, minRadius) {
+  var calculateMass = function(mass) {
+    var density = mass.density
+    var angleRadii = mass.angleRadii
+    var calcMass = 0
+    var a1 = 0
+    var a2 = 0
+    var r1 = 0
+    var r2 = 0
+    var area = 0
+    var segments = angleRadii.length - 1
+    for (var i=0; i<segments; i++) {
+      a1 = angleRadii[i][0]
+      r1 = angleRadii[i][1]
+      a2 = angleRadii[i+1][0]
+      r2 = angleRadii[i+1][1]
+      area = 0.5 * r1 * r2 * Math.sin ( degreesToRadians * (a2-a1) )  // Sine area rule
+      calcMass += density * area
+    }
+    mass.mass = calcMass  // :)
+    console.log("Calculating mass", mass)
+  }
+
+  var addNewRandomGameMass = function(x, y, points, maxRadius, minRadius, density) {
     var gameMass = {}
+    gameMass.density = density   // Do more with this later
+    gameMass.mass = 1      // Do more with this later
+    gameMass.isWall = true   // Use this to ignore wall-wall collisions
     gameMass.x = x
     gameMass.y = y
     gameMass.graphics = {}
@@ -333,6 +451,13 @@ var playGame = function() {
     gameMass.angVeloc = 0
     gameMass.affectedByGravity = false  // Things should only be affected by gravity if they move!
     gameMass.angleRadii = []
+    // Give some space for dealing with collisions
+    gameMass.collisionWith = {}
+    gameMass.collisionWith.index = null
+    gameMass.collisionWith.mass = 1
+    gameMass.collisionWith.u = 0
+    gameMass.collisionWith.v = 0
+    gameMass.collisionWith.angVeloc = 0
     // First element
     var nextAngle = 0
     var nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
@@ -350,6 +475,7 @@ var playGame = function() {
     nextRadius = gameMass.angleRadii[0][1]
     nextElt = [nextAngle, nextRadius]
     gameMass.angleRadii.push(nextElt)
+    calculateMass(gameMass)
     // Admin fields for game mass
     !gameMass.maxRadius ? gameMass.maxRadius = 0 : null;
     !gameMass.gameCoordsValid ? gameMass.gameCoordsValid = false : null
@@ -417,6 +543,7 @@ var playGame = function() {
     var points = 19     // Overridden randomly below
     var maxRadius = 150
     var minRadius = 40
+    var density = 10
     // Make the set of points first
     // Then generate the wall elements in a random order
     var wallCoordSet = []
@@ -431,14 +558,14 @@ var playGame = function() {
     wallCoordSet.sort(function(elt2, elt1){
       return elt2[2] - elt1[2]
     })
-    console.log(wallCoordSet)
     var theMass = null
     for (var i in wallCoordSet) {
       points = 3 + Math.round(21*Math.random())
       maxRadius = 50 + Math.round(150*Math.random())
       minRadius = 10 + Math.round(0.9*maxRadius*Math.random())
-      theMass = addNewRandomGameMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius)
+      theMass = addNewRandomGameMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius, density)
       theMass.graphics.back.zoomOut = 1.05 + 0.5*(1-wallCoordSet[i][2]**0.5)
+      theMass.moves = true
     }
 
     var j=0
@@ -470,7 +597,7 @@ var playGame = function() {
     }
 
     // Make the game player
-    var playerShip = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 41, 41)
+    var playerShip = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 41, 41, 0.3, 3)
     playerShip.angleRadii[1][1]=13
     playerShip.angleRadii[2][1]=23
     playerShip.angleRadii[3][1]=23
@@ -479,6 +606,7 @@ var playGame = function() {
     playerShip.affectedByGravity = true
     playerShip.u = 40
     playerShip.v = 80
+    playerShip.isWall = false
     playerShip.angVeloc = 15      // Degrees per second!
     playerShip.graphics.main = {}
     playerShip.graphics.back = {}
@@ -579,6 +707,11 @@ var playGame = function() {
       updateViewCoords()
       updateMassesGameCoords()
       updateMassesCanvasCoords()
+
+      // // Dealing with collisions - more work needed here!
+      // findCollisionsBetweenMasses()
+      // dealWithCollisions()
+
       drawCanvas()
       updateDisplay()
       var timeLoopEnd = window.performance.now()
