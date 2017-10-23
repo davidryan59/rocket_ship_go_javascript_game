@@ -54,7 +54,7 @@ var playGame = function() {
   }
 
   var updateMassesGameCoords = function() {
-    for (var mass of state.masses) {
+    for (var mass of state.world.masses) {
       if (!mass.gameCoordsValid || mass.moves) {
         updateMassGameCoords(mass)
       }
@@ -114,7 +114,7 @@ var playGame = function() {
   var updateMassesCanvasCoords = function() {
     var backZoomOut = 0
     var backZoom = 0
-    for (var mass of state.masses) {
+    for (var mass of state.world.masses) {
       mapCoordsGameToCanvas(mass.gameCoords, mass.canvasMainCoords, 1)
       backZoomOut = mass.graphics.back.zoomOut
       backZoomOut > 1 ? backZoom = 1/backZoomOut : backZoom = 0.9  // Sensible default
@@ -125,10 +125,10 @@ var playGame = function() {
   var doTiming = function(tFrame) {
     var prevLoopStart = state.control.timing.thisLoopStart
     var thisLoopStart = tFrame
-    if (state.control.comingOffPause) {
+    if (state.control.pausing.comingOffPause) {
       // Reset the prevLoopStart since its going to be a long time ago!
       prevLoopStart = thisLoopStart - 16        // Deduct a single frame
-      state.control.comingOffPause = false
+      state.control.pausing.comingOffPause = false
     }
     var msBetweenLoops = thisLoopStart-prevLoopStart
     state.control.timing.prevLoopStart = prevLoopStart
@@ -177,15 +177,15 @@ var playGame = function() {
   var drawMassesOntoCanvas = function() {
     var mass = null
     var context = state.output.context
-    for (var i in state.masses) {
-      mass = state.masses[i]
+    for (var i in state.world.masses) {
+      mass = state.world.masses[i]
       context.strokeStyle = mass.graphics.back.strokeStyle
       context.lineWidth = mass.graphics.back.lineWidth
       context.fillStyle = mass.graphics.back.fillStyle
       drawLineSet(mass.canvasBackCoords)
     }
-    for (var i in state.masses) {
-      mass = state.masses[i]
+    for (var i in state.world.masses) {
+      mass = state.world.masses[i]
       context.strokeStyle = mass.graphics.main.strokeStyle
       context.lineWidth = mass.graphics.main.lineWidth
       context.fillStyle = mass.graphics.main.fillStyle
@@ -348,10 +348,10 @@ var playGame = function() {
   }
 
   var markAsCollided = function(i, j) {
-    // var xi = state.masses[i].x
-    // var yi = state.masses[i].y
-    // var xj = state.masses[j].x
-    // var yj = state.masses[j].y
+    // var xi = state.world.masses[i].x
+    // var yi = state.world.masses[i].y
+    // var xj = state.world.masses[j].x
+    // var yj = state.world.masses[j].y
     // var wrapX = state.wrapX
     // var wrapY = state.wrapY
     // var diffX = xj-xi
@@ -359,17 +359,17 @@ var playGame = function() {
     // var sign_xi = Math.
     // var angle =
     // Mark i as having collided with j
-    state.masses[i].collisionWith.index = j
-    state.masses[i].collisionWith.mass = state.masses[j].mass
-    state.masses[i].collisionWith.u = state.masses[j].u
-    state.masses[i].collisionWith.v = state.masses[j].v
-    state.masses[i].collisionWith.angVeloc = state.masses[j].angVeloc
+    state.world.masses[i].collisionWith.index = j
+    state.world.masses[i].collisionWith.mass = state.world.masses[j].mass
+    state.world.masses[i].collisionWith.u = state.world.masses[j].u
+    state.world.masses[i].collisionWith.v = state.world.masses[j].v
+    state.world.masses[i].collisionWith.angVeloc = state.world.masses[j].angVeloc
     // Mark j as having collided with i
-    state.masses[j].collisionWith.index = i
-    state.masses[j].collisionWith.mass = state.masses[i].mass
-    state.masses[j].collisionWith.u = state.masses[i].u
-    state.masses[j].collisionWith.v = state.masses[i].v
-    state.masses[j].collisionWith.angVeloc = state.masses[i].angVeloc
+    state.world.masses[j].collisionWith.index = i
+    state.world.masses[j].collisionWith.mass = state.world.masses[i].mass
+    state.world.masses[j].collisionWith.u = state.world.masses[i].u
+    state.world.masses[j].collisionWith.v = state.world.masses[i].v
+    state.world.masses[j].collisionWith.angVeloc = state.world.masses[i].angVeloc
   }
 
   var findCollisionsBetweenMasses = function() {
@@ -381,19 +381,19 @@ var playGame = function() {
     var rj = 0
     var wrapX = state.world.wrapCoords.x
     var wrapY = state.world.wrapCoords.y
-    var countMasses = state.masses.length
+    var countMasses = state.world.masses.length
     for (var i=0; i<countMasses; i++) {
-      if (state.masses[i].collisionWith.index === null) {
-        xi = state.masses[i].x
-        yi = state.masses[i].y
-        ri = state.masses[i].maxRadius
+      if (state.world.masses[i].collisionWith.index === null) {
+        xi = state.world.masses[i].x
+        yi = state.world.masses[i].y
+        ri = state.world.masses[i].maxRadius
         for (var j=i+1; j<countMasses; j++) {
-          if (state.masses[j].collisionWith.index === null) {
+          if (state.world.masses[j].collisionWith.index === null) {
             // Ignore wall-wall collisions at the moment
-            if (!(state.masses[i].isWall && state.masses[j].isWall)) {
-              xj = state.masses[j].x
-              yj = state.masses[j].y
-              rj = state.masses[j].maxRadius
+            if (!(state.world.masses[i].isWall && state.world.masses[j].isWall)) {
+              xj = state.world.masses[j].x
+              yj = state.world.masses[j].y
+              rj = state.world.masses[j].maxRadius
               xDiff = Math.abs(xj-xi) % wrapX
               yDiff = Math.abs(yj-yi) % wrapY
               if (xDiff**2 + yDiff**2 < (ri+rj)**2) {
@@ -436,7 +436,7 @@ var playGame = function() {
   }
 
   var dealWithCollisions = function() {
-    for (var mass of state.masses) {
+    for (var mass of state.world.masses) {
       if (mass.collisionWith.index !== null) {
         dealWithCollision(mass)
       }
@@ -449,14 +449,14 @@ var playGame = function() {
       // Do P things on Q
       eventKeyboardCode = "KeyP"  // Extra pause button
     }
-    if ( state.control.paused && eventKeyboardCode === "KeyP" ) {
+    if ( state.control.pausing.isPaused && eventKeyboardCode === "KeyP" ) {
       // Do pause handling on keyups, not keydowns!
-      if (state.control.waitingForPauseKeyup) {
-        state.control.waitingForPauseKeyup = false
+      if (state.control.pausing.waitingForPauseKeyup) {
+        state.control.pausing.waitingForPauseKeyup = false
       } else {
         // Restart main loop!
-        state.control.paused = false
-        state.control.comingOffPause = true
+        state.control.pausing.isPaused = false
+        state.control.pausing.comingOffPause = true
         window.requestAnimationFrame(mainLoop)
       }
     }
@@ -502,9 +502,9 @@ var playGame = function() {
       }
     }
     // Pause game
-    if (!state.control.paused && (state.input.keyboard.KeyP || state.input.keyboard.KeyQ)) {
-      state.control.paused = true
-      state.control.waitingForPauseKeyup = true
+    if (!state.control.pausing.isPaused && (state.input.keyboard.KeyP || state.input.keyboard.KeyQ)) {
+      state.control.pausing.isPaused = true
+      state.control.pausing.waitingForPauseKeyup = true
     }
   }
 
@@ -534,7 +534,7 @@ var playGame = function() {
   }
 
   var recalculateAllPhysicsStats = function() {
-    for (var mass in state.masses) {
+    for (var mass in state.world.masses) {
       if (mass.physicsStatsInvalid) {
         recalculatePhysicsStats(mass)
       }
@@ -547,11 +547,11 @@ var playGame = function() {
   }
 
   var removeDeadMasses = function() {
-    var countMasses = state.masses.length
+    var countMasses = state.world.masses.length
     var counter = 0
     while (counter < countMasses) {
-      if (state.masses[counter].toBeRemoved) {
-        state.masses.splice(counter, 1)
+      if (state.world.masses[counter].toBeRemoved) {
+        state.world.masses.splice(counter, 1)
         countMasses--
         counter--
       }
@@ -583,7 +583,7 @@ var playGame = function() {
     newMass.graphics.back.fillStyle = "#444"
     newMass.graphics.back.strokeStyle = "#669"
     newMass.graphics.back.lineWidth = 2
-    // Note: state.masses will be rendered in the order they are stored!
+    // Note: state.world.masses will be rendered in the order they are stored!
     // However, it will only look correct if the objects with
     // higher zoomOuts are rendered first
     // so there ought to be checking of order and sorting
@@ -637,7 +637,7 @@ var playGame = function() {
       newMass.canvasBackCoords[i] = newMass.canvasBackCoords[i].slice()
     }
     // Add to game masses
-    state.masses.push(newMass)
+    state.world.masses.push(newMass)
     return newMass
   }
 
@@ -651,12 +651,23 @@ var playGame = function() {
     state.output = {}
     state.output.pageElts = {}
 
-    state.control.paused = false
-    state.control.waitingForPauseKeyup = false
-    state.control.comingOffPause = false
+    // Setup control variables
     state.control.loopCount = 0
-    // state.control.continueLooping = true  // No longer used - previously on q key
+    state.control.pausing = {}
+    state.control.pausing.isPaused = false
+    state.control.pausing.waitingForPauseKeyup = false
+    state.control.pausing.comingOffPause = false
+    state.control.timing = {}
+    state.control.timing.prevLoopStart = window.performance.now()    // dummy data
+    state.control.timing.thisLoopStart = window.performance.now()
+    state.control.timing.msBetweenLoops = 10
+    state.control.timing.msRenderTime = 10
 
+    // Setup world maximum dimensions
+    // If things are bigger, they get wrapped around (modular arithmetic!)
+    // Note - no individual item should be anywhere near this big,
+    // since they will not display correctly, they will visibly flicker
+    // from left/right or top/down.
     state.world.wrapCoords = {}
     state.world.wrapCoords.x = 5000
     state.world.wrapCoords.y = 3000
@@ -664,13 +675,6 @@ var playGame = function() {
     // Each of the dimensions for wrapCoords here needs to be
     // significantly bigger than the screen dimension.
     // Also, the stars will be very near unless these dimensions are big enough!
-
-    // Setup variables for game
-    state.control.timing = {}
-    state.control.timing.prevLoopStart = window.performance.now()    // dummy data
-    state.control.timing.thisLoopStart = window.performance.now()
-    state.control.timing.msBetweenLoops = 10
-    state.control.timing.msRenderTime = 10
 
     // Setup canvas, context and view
     var canvasElt = document.querySelector("#main-canvas")
@@ -715,7 +719,7 @@ var playGame = function() {
 
     // Start the game masses array.
     // This contains: the player ship, walls, bullets, enemies, etc.
-    state.masses = []
+    state.world.masses = []
 
     // Make some walls using the random mass
     var xMin = -100
@@ -752,31 +756,31 @@ var playGame = function() {
     }
 
     var j=0
-    var jMax = state.masses.length - 1
+    var jMax = state.world.masses.length - 1
 
     // Make some of the game masses rotate!
     for (var i=0; i<7; i++) {
       j = Math.round(jMax * Math.random())
-      state.masses[j].moves = true
-      state.masses[j].angVeloc = -30 + 60 * Math.random()  // deg/s
+      state.world.masses[j].moves = true
+      state.world.masses[j].angVeloc = -30 + 60 * Math.random()  // deg/s
     }
 
     // Make some of the game masses dark brown!
     for (var i=0; i<9; i++) {
       j = Math.round(jMax * Math.random())
-      state.masses[i].graphics.main.fillStyle = "#997755"
-      state.masses[i].graphics.main.strokeStyle = "#AA6655"
-      state.masses[i].graphics.back.fillStyle = "#664422"
-      state.masses[i].graphics.back.strokeStyle = "#999922"
+      state.world.masses[i].graphics.main.fillStyle = "#997755"
+      state.world.masses[i].graphics.main.strokeStyle = "#AA6655"
+      state.world.masses[i].graphics.back.fillStyle = "#664422"
+      state.world.masses[i].graphics.back.strokeStyle = "#999922"
     }
 
     // Make some of the game masses gold!
     for (var i=0; i<3; i++) {
       j = Math.round(jMax * Math.random())
-      state.masses[i].graphics.main.fillStyle = "#998811"
-      state.masses[i].graphics.main.strokeStyle = "#AAAAEE"
-      state.masses[i].graphics.back.fillStyle = "#665511"
-      state.masses[i].graphics.back.strokeStyle = "#779977"
+      state.world.masses[i].graphics.main.fillStyle = "#998811"
+      state.world.masses[i].graphics.main.strokeStyle = "#AAAAEE"
+      state.world.masses[i].graphics.back.fillStyle = "#665511"
+      state.world.masses[i].graphics.back.strokeStyle = "#779977"
     }
 
     // Make the game player
@@ -869,8 +873,8 @@ var playGame = function() {
   window.mainLoop = function(timeLoopStart) {
     // timeLoopStart is a decimal number, a time precise to 0.005ms :)
     // Can probably merge these two variables into one?
-    // if (state.control.continueLooping && !state.control.paused) {
-    if (!state.control.paused) {
+    // if (state.control.continueLooping && !state.control.pausing.isPaused) {
+    if (!state.control.pausing.isPaused) {
       window.requestAnimationFrame(mainLoop)
       // Make a request for next animation frame
       // at the top of this animation frame
