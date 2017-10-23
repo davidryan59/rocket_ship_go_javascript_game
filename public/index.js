@@ -15,7 +15,7 @@ var playGame = function() {
   var updateMassGameCoords = function(mass) {
     // Get state variables
     var grav = state.gravity        // Pixels per second per second
-    var dT = state.timing.msBetweenLoops / 1000    // in seconds
+    var dT = state.control.timing.msBetweenLoops / 1000    // in seconds
     // Get mass variables
     var x = mass.x
     var y = mass.y
@@ -123,7 +123,7 @@ var playGame = function() {
   }
 
   var doTiming = function(tFrame) {
-    var prevLoopStart = state.timing.thisLoopStart
+    var prevLoopStart = state.control.timing.thisLoopStart
     var thisLoopStart = tFrame
     if (state.control.comingOffPause) {
       // Reset the prevLoopStart since its going to be a long time ago!
@@ -131,9 +131,9 @@ var playGame = function() {
       state.control.comingOffPause = false
     }
     var msBetweenLoops = thisLoopStart-prevLoopStart
-    state.timing.prevLoopStart = prevLoopStart
-    state.timing.thisLoopStart = thisLoopStart
-    state.timing.msBetweenLoops = msBetweenLoops
+    state.control.timing.prevLoopStart = prevLoopStart
+    state.control.timing.thisLoopStart = thisLoopStart
+    state.control.timing.msBetweenLoops = msBetweenLoops
   }
 
   var updateViewCoords = function() {
@@ -154,7 +154,7 @@ var playGame = function() {
   }
 
   var drawLineSet = function(coordsArray){
-    var context = state.context
+    var context = state.output.context
     context.beginPath()
     var posX = coordsArray[0][0]
     var posY = coordsArray[0][1]
@@ -176,7 +176,7 @@ var playGame = function() {
 
   var drawMassesOntoCanvas = function() {
     var mass = null
-    var context = state.context
+    var context = state.output.context
     for (var i in state.masses) {
       mass = state.masses[i]
       context.strokeStyle = mass.graphics.back.strokeStyle
@@ -194,7 +194,7 @@ var playGame = function() {
   }
 
   var drawStars = function() {
-    var context = state.context
+    var context = state.output.context
     mapCoordsGameToCanvas(state.stars.gameCoords, state.stars.canvasCoords, 1/state.stars.zoomOut, true)
     // the 'true' on the end does the canvas wrapping independently for each star
     // unlike most objects in the game (e.g. solid masses) which wrap together.
@@ -218,7 +218,7 @@ var playGame = function() {
     var canvasRight = state.canvas.bounds.right
     var canvasUp = state.canvas.bounds.up
     var canvasDown = state.canvas.bounds.down
-    var context = state.context
+    var context = state.output.context
     // Do drawing
     // context.fillStyle="black";
     // context.fillRect(canvasLeft, canvasUp, canvasRight-canvasLeft, canvasDown-canvasUp)
@@ -229,15 +229,15 @@ var playGame = function() {
 
   var updateDisplay = function(){
     if (state.control.loopCount % 7 === 0) {
-      state.timing.renderTimeElt.innerText = Math.round(state.timing.msRenderTime )
-      state.htmlElements.x.innerText = Math.round(state.player.ship.x)
-      state.htmlElements.y.innerText = Math.round(state.player.ship.y)
-      state.htmlElements.u.innerText = Math.round(state.player.ship.u)
-      state.htmlElements.v.innerText = Math.round(state.player.ship.v)
-      state.htmlElements.anglePos.innerText = Math.round(state.player.ship.angle)
-      state.htmlElements.angleVel.innerText = Math.round(state.player.ship.angVeloc)
-      state.htmlElements.fuel.innerText = Math.round(state.fuel)
-      state.htmlElements.ammo.innerText = Math.round(state.ammo)
+      state.output.pageElts.fuel.innerText = Math.round(state.player.fuel)
+      state.output.pageElts.ammo.innerText = Math.round(state.player.ammo)
+      state.output.pageElts.x.innerText = Math.round(state.player.ship.x)
+      state.output.pageElts.y.innerText = Math.round(state.player.ship.y)
+      state.output.pageElts.u.innerText = Math.round(state.player.ship.u)
+      state.output.pageElts.v.innerText = Math.round(state.player.ship.v)
+      state.output.pageElts.anglePos.innerText = Math.round(state.player.ship.angle)
+      state.output.pageElts.angleVel.innerText = Math.round(state.player.ship.angVeloc)
+      state.output.pageElts.renderTimeElt.innerText = Math.round(state.control.timing.msRenderTime )
     }
   }
 
@@ -280,7 +280,7 @@ var playGame = function() {
     state.player.ship.u -= bulletVelocRecoil * Math.sin(degreesToRadians*state.player.ship.angle)
     state.player.ship.v -= bulletVelocRecoil * Math.cos(degreesToRadians*state.player.ship.angle)
     state.player.ship.angVeloc -= bulletSpinRecoil * spin
-    state.ammo--
+    state.player.ammo--
   }
 
   var checkIfTrulyCollided = function(i, j) {
@@ -464,16 +464,16 @@ var playGame = function() {
 
   var respondToKeyboardDuringMainLoop = function() {
     // This only runs when main loop is active
-    if (state.fuel > 0) {
+    if (state.player.fuel > 0) {
       // Turn left
       if (state.input.keyboard.ArrowLeft) {
         state.player.ship.angVeloc -= 15
-        state.fuel -= 0.001
+        state.player.fuel -= 0.001
       }
       // Turn right
       if (state.input.keyboard.ArrowRight) {
         state.player.ship.angVeloc += 15
-        state.fuel -= 0.001
+        state.player.fuel -= 0.001
       }
       // Rotate freely
       if (!state.input.keyboard.ArrowLeft && !state.input.keyboard.ArrowRight) {
@@ -484,10 +484,10 @@ var playGame = function() {
       if (state.input.keyboard.ArrowUp) {
         state.player.ship.u += 10 * Math.sin(degreesToRadians*state.player.ship.angle)
         state.player.ship.v += 10 * Math.cos(degreesToRadians*state.player.ship.angle)
-        state.fuel -= 0.005
+        state.player.fuel -= 0.005
       }
     }
-    if (state.ammo > 0) {
+    if (state.player.ammo > 0) {
       // Fire bullet
       if (state.input.keyboard.Space) {
         fireBullet()
@@ -640,6 +640,9 @@ var playGame = function() {
 
     // Setup main state categories here
     state.control = {}
+    state.input = {}
+    state.output = {}
+    state.output.pageElts = {}
     state.player = {}
 
     state.control.paused = false
@@ -657,27 +660,50 @@ var playGame = function() {
     // Also, the stars will be very near unless these dimensions are big enough!
 
     // Setup variables for game
-    var timing = {
-      prevLoopStart: window.performance.now(),    // dummy data
-      thisLoopStart: window.performance.now(),
-      msBetweenLoops: 10,
-      msRenderTime: 10,
-      renderTimeElt: document.querySelector("#render-time")
-    }
+    state.control.timing = {}
+    state.control.timing.prevLoopStart = window.performance.now()    // dummy data
+    state.control.timing.thisLoopStart = window.performance.now()
+    state.control.timing.msBetweenLoops = 10
+    state.control.timing.msRenderTime = 10
+
+    // Setup canvas, context and view
     var canvasElt = document.querySelector("#main-canvas")
     var context = canvasElt.getContext('2d')
-
-    // Setup canvas variable
     var boundLeft = 0
     var boundRight = canvasElt.width
     var boundUp = 0
     var boundDown = canvasElt.height
-    var canvasBounds = {left: boundLeft, right: boundRight, up: boundUp, down: boundDown}
-    var canvasCentre = {x: (boundLeft+boundRight)/2, y: (boundUp+boundDown)/2}
-    var canvasSize = {x: boundRight-boundLeft, y: boundDown-boundUp}
-    var canvas = {elt: canvasElt, bounds: canvasBounds, centre: canvasCentre, size: canvasSize}
-    state.canvas = canvas
-    var view = {pos: {x: canvasCentre.x, y: canvasCentre.y}, zoom: 1}
+
+    state.canvas = {}
+    state.canvas.bounds = {}
+    state.canvas.bounds.left = boundLeft
+    state.canvas.bounds.right = boundRight
+    state.canvas.bounds.up = boundUp
+    state.canvas.bounds.down = boundDown
+    state.canvas.centre = {}
+    state.canvas.centre.x = (boundLeft+boundRight)/2
+    state.canvas.centre.y = (boundUp+boundDown)/2
+    state.canvas.size = {}
+    state.canvas.size.x = boundRight-boundLeft
+    state.canvas.size.y = boundDown-boundUp
+
+    // state.canvas.elt
+
+    // var canvasBounds = {left: boundLeft, right: boundRight, up: boundUp, down: boundDown}
+    // var canvasCentre = {x: (boundLeft+boundRight)/2, y: (boundUp+boundDown)/2}
+    // var canvasSize = {x: boundRight-boundLeft, y: boundDown-boundUp}
+    // var canvas = {elt: canvasElt, bounds: canvasBounds, centre: canvasCentre, size: canvasSize}
+    // state.canvas = canvas
+
+    // var context = canvasElt.getContext('2d')
+    // state.output.context = context
+
+    state.view = {}
+    state.view.zoom = 1
+    state.view.pos = {}
+    state.view.pos.x = state.canvas.centre.x
+    state.view.pos.y = state.canvas.centre.y
+
     // x, y are positions in pixels
     // u, v are velocities in pixels per second
 
@@ -748,7 +774,7 @@ var playGame = function() {
     }
 
     // Make the game player
-    var playerShip = addNewMass(canvasCentre.x, canvasCentre.y, 5, 41, 41, 0.3, 3)
+    var playerShip = addNewMass(state.canvas.centre.x, state.canvas.centre.y, 5, 41, 41, 0.3, 3)
     playerShip.massType = "ship"
     playerShip.angleRadii[1][1]=13
     playerShip.angleRadii[2][1]=23
@@ -768,10 +794,15 @@ var playGame = function() {
     playerShip.graphics.back.fillStyle = "#035"
     playerShip.graphics.back.strokeStyle = "#555"
     playerShip.graphics.back.lineWidth = 2
+
+    // Player ship related variables
     state.player.ship = playerShip
+    state.player.fuel = 100
+    state.player.ammo = 23
+    // Note - these place the fuel and ammo on masses
+    // Might want to change this to just
 
     // Monitor key presses
-    state.input = {}
     state.input.keyboard = {}
     state.input.keyboard.ArrowLeft = false
     state.input.keyboard.ArrowRight = false
@@ -780,20 +811,20 @@ var playGame = function() {
     state.input.keyboard.KeyP = false
     state.input.keyboard.KeyQ = false    // Currently used as an extra pause button
 
-    // Setup links to HTML items
-    state.htmlElements = {}
-    state.htmlElements.x = document.querySelector("#pos-x")
-    state.htmlElements.y = document.querySelector("#pos-y")
-    state.htmlElements.u = document.querySelector("#vel-u")
-    state.htmlElements.v = document.querySelector("#vel-v")
-    state.htmlElements.anglePos = document.querySelector("#ang-pos")
-    state.htmlElements.angleVel = document.querySelector("#ang-vel")
-    state.htmlElements.fuel = document.querySelector("#fuel-left")
-    state.htmlElements.ammo = document.querySelector("#ammo-left")
+    // Setup output links to HTML webpage
+    state.output.context = context
+    // state.output.pageElts = {}    // Done earlier
+    state.output.pageElts.canvas = canvasElt
+    state.output.pageElts.fuel = document.querySelector("#fuel-left")
+    state.output.pageElts.ammo = document.querySelector("#ammo-left")
+    state.output.pageElts.x = document.querySelector("#pos-x")
+    state.output.pageElts.y = document.querySelector("#pos-y")
+    state.output.pageElts.u = document.querySelector("#vel-u")
+    state.output.pageElts.v = document.querySelector("#vel-v")
+    state.output.pageElts.anglePos = document.querySelector("#ang-pos")
+    state.output.pageElts.angleVel = document.querySelector("#ang-vel")
+    state.output.pageElts.renderTimeElt = document.querySelector("#render-time")
 
-    // Special variables
-    state.fuel = 100
-    state.ammo = 23
     // state.health = 100  // Future iterations!
     // state.money = 0
     state.gravity = -120    // (Pixels per second per second!)
@@ -829,11 +860,6 @@ var playGame = function() {
       state.stars.sizes.push(minSize + (maxSize-minSize)*Math.random()**2)
     }
 
-    // Store them all in the state
-    state.timing = timing
-    state.context = context
-    state.view = view
-
   }
 
   window.mainLoop = function(timeLoopStart) {
@@ -863,14 +889,14 @@ var playGame = function() {
 
     // // Dealing with collisions - more work needed here!
     // // Can comment these two in and out to turn collision detection on/off
-    // findCollisionsBetweenMasses()
-    // dealWithCollisions()
+    findCollisionsBetweenMasses()
+    dealWithCollisions()
 
     drawCanvas()
     updateDisplay()
     removeDeadMasses()
     var timeLoopEnd = window.performance.now()
-    state.timing.msRenderTime = timeLoopEnd - timeLoopStart
+    state.control.timing.msRenderTime = timeLoopEnd - timeLoopStart
 
   }
 
