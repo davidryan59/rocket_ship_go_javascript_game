@@ -116,6 +116,11 @@ var playGame = function() {
   var doTiming = function(tFrame) {
     var prevLoopStart = state.timing.thisLoopStart
     var thisLoopStart = tFrame
+    if (state.run.comingOffPause) {
+      // Reset the prevLoopStart since its going to be a long time ago!
+      prevLoopStart = thisLoopStart - 16        // Deduct a single frame
+      state.run.comingOffPause = false
+    }
     var msBetweenLoops = thisLoopStart-prevLoopStart
     state.timing.prevLoopStart = prevLoopStart
     state.timing.thisLoopStart = thisLoopStart
@@ -342,6 +347,13 @@ var playGame = function() {
     // Change the variables as appropriate
     mass.u = (u1 * (m1-m2) + 2*m2*u2 ) / (m1+m2)
     mass.v = (v1 * (m1-m2) + 2*m2*v2 ) / (m1+m2)
+
+    // If its a bullet, mark it for removal
+    if (mass.massType === "bullet") {
+      // mass.toBeRemoved = true
+    }
+    // NOT DONE - instead want some kind of damage function which
+
     // Dealt with collision now. Mark it as not collided
     mass.collisionWith.index = null
     // Could also reset the other variables here,
@@ -349,11 +361,6 @@ var playGame = function() {
   }
 
   var dealWithCollisions = function() {
-    // state.masses[i].collisionWith.index = j
-    // state.masses[i].collisionWith.mass = state.masses[j].mass
-    // state.masses[i].collisionWith.u = state.masses[j].u
-    // state.masses[i].collisionWith.v = state.masses[j].v
-    // state.masses[i].collisionWith.angVeloc = state.masses[j].angVeloc
     for (var mass of state.masses) {
       if (mass.collisionWith.index !== null) {
         dealWithCollision(mass)
@@ -361,7 +368,28 @@ var playGame = function() {
     }
   }
 
-  var respondToKeyboard = function() {
+  var respondReliablyToKeyUps = function(eventKeyboardCode) {
+    // This runs, even if the main loop isn't running!
+    if ( state.run.paused && eventKeyboardCode === "KeyP" ) {
+      // Do pause handling on keyups, not keydowns!
+      if (state.run.waitingForPauseKeyup) {
+        state.run.waitingForPauseKeyup = false
+      } else {
+        // Restart main loop!
+        state.run.paused = false
+        state.run.comingOffPause = true
+        window.requestAnimationFrame(mainLoop)
+      }
+    }
+  }
+
+  var respondReliablyToKeyDowns = function(eventKeyboardCode) {
+    // This runs, even if the main loop isn't running!
+    // Currently nothing extra to do - its in 'respondToKeyboardDuringMainLoop'
+  }
+
+  var respondToKeyboardDuringMainLoop = function() {
+    // This only runs when main loop is active
     if (state.fuel > 0) {
       if (state.keysMonitored.ArrowLeft) {
         state.shipMass.angVeloc -= 15
@@ -389,12 +417,12 @@ var playGame = function() {
         // Deal with auto-repeat keydowns in future
       }
     }
-    if (state.keysMonitored.KeyQ) {
-      state.continueLooping = false
-    }
-    if (state.keysMonitored.KeyP) {
-      // // Taken out - this doesn't actually work - how to fix?
-      // state.paused = !state.paused
+    // if (state.keysMonitored.KeyQ) {
+    //   state.continueLooping = false
+    // }
+    if (!state.run.paused && state.keysMonitored.KeyP) {
+      state.run.paused = true
+      state.run.waitingForPauseKeyup = true
     }
   }
 
@@ -437,10 +465,15 @@ var playGame = function() {
   }
 
   var removeDeadMasses = function() {
-    for (var mass in state.masses) {
-      if (mass.toBeRemoved) {
-        removeMass(mass)
+    var countMasses = state.masses.length
+    var counter = 0
+    while (counter < countMasses) {
+      if (state.masses[counter].toBeRemoved) {
+        state.masses.splice(counter, 1)
+        countMasses--
+        counter--
       }
+      counter++
     }
   }
 
@@ -526,9 +559,12 @@ var playGame = function() {
   }
 
   var setupState = function() {
-    state.continueLooping = true
-    state.paused = false
+    state.run = {}
+    state.run.paused = false
+    state.run.waitingForPauseKeyup = false
+    state.run.comingOffPause = false
     state.loopCount = 0
+    // state.run.continueLooping = true  // No longer used - previously on q key
 
     state.wrapCoords = {}
     state.wrapCoords.x = 5000
@@ -656,7 +692,7 @@ var playGame = function() {
     state.keysMonitored.ArrowLeft = false
     state.keysMonitored.ArrowRight = false
     state.keysMonitored.ArrowUp = false
-    state.keysMonitored.KeyQ = false
+    // state.keysMonitored.KeyQ = false
     state.keysMonitored.KeyP = false
     state.keysMonitored.Space = false
 
@@ -719,12 +755,14 @@ var playGame = function() {
 
   window.mainLoop = function(timeLoopStart) {
     // timeLoopStart is a decimal number, a time precise to 0.005ms :)
-    if (state.continueLooping) {
+    // Can probably merge these two variables into one?
+    // if (state.run.continueLooping && !state.run.paused) {
+    if (!state.run.paused) {
       window.requestAnimationFrame(mainLoop)
       // Make a request for next animation frame
       // at the top of this animation frame
     } else {
-      // Exiting main loop now
+      // Log the state on every pause
       console.log("State is", state)
     }
     // Using the 'requestAnimationFrame'
@@ -732,25 +770,24 @@ var playGame = function() {
     // frame displayed by the browser
     // i.e. browser and main loop are synchronised
 
-    if (!state.paused) {
-      state.loopCount++
-      doTiming(timeLoopStart)
-      respondToKeyboard()
-      updateViewCoords()
-      recalculateAllPhysicsStats()
-      updateMassesGameCoords()
-      updateMassesCanvasCoords()
+    state.loopCount++
+    doTiming(timeLoopStart)
+    respondToKeyboardDuringMainLoop()
+    updateViewCoords()
+    recalculateAllPhysicsStats()
+    updateMassesGameCoords()
+    updateMassesCanvasCoords()
 
-      // // Dealing with collisions - more work needed here!
-      findCollisionsBetweenMasses()
-      dealWithCollisions()
+    // // Dealing with collisions - more work needed here!
+    // findCollisionsBetweenMasses()
+    // dealWithCollisions()
 
-      drawCanvas()
-      updateDisplay()
-      removeDeadMasses()
-      var timeLoopEnd = window.performance.now()
-      state.timing.msRenderTime = timeLoopEnd - timeLoopStart
-    }
+    drawCanvas()
+    updateDisplay()
+    removeDeadMasses()
+    var timeLoopEnd = window.performance.now()
+    state.timing.msRenderTime = timeLoopEnd - timeLoopStart
+
   }
 
   // RUN THE GAME!!!!
@@ -767,6 +804,7 @@ var playGame = function() {
     if (monitoredCodeState===false) {
       state.keysMonitored[eventKeyboardCode] = true
     }
+    respondReliablyToKeyDowns(eventKeyboardCode)
   })
   window.addEventListener('keyup', function(event){
     var eventKeyboardCode = event.code
@@ -774,6 +812,7 @@ var playGame = function() {
     if (monitoredCodeState===true) {
       state.keysMonitored[eventKeyboardCode] = false
     }
+    respondReliablyToKeyUps(eventKeyboardCode)
   })
 
   // Finally... start the mainLoop
