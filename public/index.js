@@ -70,20 +70,20 @@ var playGame = function() {
     // Use wrapIndep only if different coordinates should be wrapped independently,
     // e.g. for the stars background.
 
-    var viewMidX = state.view.pos.x
-    var viewMidY = state.view.pos.y
-    var viewZoom = state.view.zoom
+    var viewMidX = state.output.view.pos.x
+    var viewMidY = state.output.view.pos.y
+    var viewZoom = state.output.view.zoom
     var overallZoom = viewZoom * extraZoom
 
-    var canvasMidX = state.canvas.centre.x
-    var canvasMidY = state.canvas.centre.y
+    var canvasMidX = state.output.canvasDims.centre.x
+    var canvasMidY = state.output.canvasDims.centre.y
 
     // Wrapping coordinates
     // Need the world to have width and height
     // at least 2 (maybe 3) times as big as the screen
     // Then the canvas is wrapped around successfully
-    var actualWrapX = state.wrapCoords.x * overallZoom
-    var actualWrapY = state.wrapCoords.y * overallZoom
+    var actualWrapX = state.world.wrapCoords.x * overallZoom
+    var actualWrapY = state.world.wrapCoords.y * overallZoom
     var canvasWrapX = null
     var canvasWrapY = null
 
@@ -137,8 +137,8 @@ var playGame = function() {
   }
 
   var updateViewCoords = function() {
-    var prevX = state.view.pos.x    // Pixels
-    var prevY = state.view.pos.y    // Pixels
+    var prevX = state.output.view.pos.x    // Pixels
+    var prevY = state.output.view.pos.y    // Pixels
     var followX = state.player.ship.x
     var followY = state.player.ship.y
     var dX = followX-prevX
@@ -146,11 +146,11 @@ var playGame = function() {
     var d2 = state.player.ship.u**2 + state.player.ship.v**2
     // Sometimes view can stay behind the player ship so far
     // it is off the screen! Fix this.
-    state.view.pos.x = prevX + dX / 5
-    state.view.pos.y = prevY + dY / 5
+    state.output.view.pos.x = prevX + dX / 5
+    state.output.view.pos.y = prevY + dY / 5
     // When the player ship stops momentarily, the screen zooms in and out
     // very fast. Fix this.
-    state.view.zoom = 1  //0.92+0.08/(1+0.0001*d2)
+    state.output.view.zoom = 1  //0.92+0.08/(1+0.0001*d2)
   }
 
   var drawLineSet = function(coordsArray){
@@ -214,10 +214,10 @@ var playGame = function() {
 
   var drawCanvas = function(){
     // Set up drawing
-    var canvasLeft = state.canvas.bounds.left
-    var canvasRight = state.canvas.bounds.right
-    var canvasUp = state.canvas.bounds.up
-    var canvasDown = state.canvas.bounds.down
+    var canvasLeft = state.output.canvasDims.bounds.left
+    var canvasRight = state.output.canvasDims.bounds.right
+    var canvasUp = state.output.canvasDims.bounds.up
+    var canvasDown = state.output.canvasDims.bounds.down
     var context = state.output.context
     // Do drawing
     // context.fillStyle="black";
@@ -304,8 +304,8 @@ var playGame = function() {
   }
 
   var measureDistance = function(x1, y1, x2, y2) {
-    var wrapX = state.wrapX
-    var wrapY = state.wrapY
+    var wrapX = state.world.wrapCoords.x
+    var wrapY = state.world.wrapCoords.y
     var offsetX = measureModularOffset(x1, x2, wrapX)
     var offsetY = measureModularOffset(y1, y2, wrapY)
     // Offsets are from -wrap/2 to +wrap/2 in each direction
@@ -374,8 +374,8 @@ var playGame = function() {
     var yj = 0
     var ri = 0
     var rj = 0
-    var wrapX = state.wrapCoords.x
-    var wrapY = state.wrapCoords.y
+    var wrapX = state.world.wrapCoords.x
+    var wrapY = state.world.wrapCoords.y
     var countMasses = state.masses.length
     for (var i=0; i<countMasses; i++) {
       if (state.masses[i].collisionWith.index === null) {
@@ -639,11 +639,12 @@ var playGame = function() {
   var setupState = function() {
 
     // Setup main state categories here
+    state.world = {}
+    state.player = {}
     state.control = {}
     state.input = {}
     state.output = {}
     state.output.pageElts = {}
-    state.player = {}
 
     state.control.paused = false
     state.control.waitingForPauseKeyup = false
@@ -651,9 +652,9 @@ var playGame = function() {
     state.control.loopCount = 0
     // state.control.continueLooping = true  // No longer used - previously on q key
 
-    state.wrapCoords = {}
-    state.wrapCoords.x = 5000
-    state.wrapCoords.y = 3000
+    state.world.wrapCoords = {}
+    state.world.wrapCoords.x = 5000
+    state.world.wrapCoords.y = 3000
     // Currently (2017_10_22) the screen is fixed at 1200x675 px (16:9 aspect ratio)
     // Each of the dimensions for wrapCoords here needs to be significantly bigger
     // than the screen dimension
@@ -674,35 +675,35 @@ var playGame = function() {
     var boundUp = 0
     var boundDown = canvasElt.height
 
-    state.canvas = {}
-    state.canvas.bounds = {}
-    state.canvas.bounds.left = boundLeft
-    state.canvas.bounds.right = boundRight
-    state.canvas.bounds.up = boundUp
-    state.canvas.bounds.down = boundDown
-    state.canvas.centre = {}
-    state.canvas.centre.x = (boundLeft+boundRight)/2
-    state.canvas.centre.y = (boundUp+boundDown)/2
-    state.canvas.size = {}
-    state.canvas.size.x = boundRight-boundLeft
-    state.canvas.size.y = boundDown-boundUp
+    state.output.canvasDims = {}
+    state.output.canvasDims.bounds = {}
+    state.output.canvasDims.bounds.left = boundLeft
+    state.output.canvasDims.bounds.right = boundRight
+    state.output.canvasDims.bounds.up = boundUp
+    state.output.canvasDims.bounds.down = boundDown
+    state.output.canvasDims.centre = {}
+    state.output.canvasDims.centre.x = (boundLeft+boundRight)/2
+    state.output.canvasDims.centre.y = (boundUp+boundDown)/2
+    state.output.canvasDims.size = {}
+    state.output.canvasDims.size.x = boundRight-boundLeft
+    state.output.canvasDims.size.y = boundDown-boundUp
 
-    // state.canvas.elt
+    // state.output.canvasDims.elt
 
     // var canvasBounds = {left: boundLeft, right: boundRight, up: boundUp, down: boundDown}
     // var canvasCentre = {x: (boundLeft+boundRight)/2, y: (boundUp+boundDown)/2}
     // var canvasSize = {x: boundRight-boundLeft, y: boundDown-boundUp}
     // var canvas = {elt: canvasElt, bounds: canvasBounds, centre: canvasCentre, size: canvasSize}
-    // state.canvas = canvas
+    // state.output.canvasDims = canvas
 
     // var context = canvasElt.getContext('2d')
     // state.output.context = context
 
-    state.view = {}
-    state.view.zoom = 1
-    state.view.pos = {}
-    state.view.pos.x = state.canvas.centre.x
-    state.view.pos.y = state.canvas.centre.y
+    state.output.view = {}
+    state.output.view.zoom = 1
+    state.output.view.pos = {}
+    state.output.view.pos.x = state.output.canvasDims.centre.x
+    state.output.view.pos.y = state.output.canvasDims.centre.y
 
     // x, y are positions in pixels
     // u, v are velocities in pixels per second
@@ -774,7 +775,7 @@ var playGame = function() {
     }
 
     // Make the game player
-    var playerShip = addNewMass(state.canvas.centre.x, state.canvas.centre.y, 5, 41, 41, 0.3, 3)
+    var playerShip = addNewMass(state.output.canvasDims.centre.x, state.output.canvasDims.centre.y, 5, 41, 41, 0.3, 3)
     playerShip.massType = "ship"
     playerShip.angleRadii[1][1]=13
     playerShip.angleRadii[2][1]=23
@@ -837,16 +838,16 @@ var playGame = function() {
     var minSize = 1
     var maxSize = 4
     state.stars.zoomOut = 0.75 * Math.min(
-      state.wrapCoords.x / state.canvas.size.x,
-      state.wrapCoords.y / state.canvas.size.y
+      state.world.wrapCoords.x / state.output.canvasDims.size.x,
+      state.world.wrapCoords.y / state.output.canvasDims.size.y
     )
     // Note: this factor of 0.75 (3/4) means that
     // the most the view can zoom out during gameplay is 4/3
     // otherwise stars start disappearing off the sides!
     var starX = 0
     var starY = 0
-    var starMaxCoordX = state.wrapCoords.x
-    var starMaxCoordY = state.wrapCoords.y
+    var starMaxCoordX = state.world.wrapCoords.x
+    var starMaxCoordY = state.world.wrapCoords.y
     var numberOfStars = 1000
     var starColours = ["#FFF", "#999", "#FCC", "#FDB", "#FFA", "#4DF", "#AAF"]
     var colourIndex = 0
