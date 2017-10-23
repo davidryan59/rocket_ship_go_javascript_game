@@ -14,7 +14,7 @@ var playGame = function() {
 
   var updateMassGameCoords = function(mass) {
     // Get state variables
-    var grav = state.gravity        // Pixels per second per second
+    var grav = state.world.gravity        // Pixels per second per second
     var dT = state.control.timing.msBetweenLoops / 1000    // in seconds
     // Get mass variables
     var x = mass.x
@@ -195,18 +195,23 @@ var playGame = function() {
 
   var drawStars = function() {
     var context = state.output.context
-    mapCoordsGameToCanvas(state.stars.gameCoords, state.stars.canvasCoords, 1/state.stars.zoomOut, true)
+    mapCoordsGameToCanvas(
+      state.world.stars.gameCoords,
+      state.world.stars.canvasCoords,
+      1/state.world.stars.zoomOut,
+      true
+    )
     // the 'true' on the end does the canvas wrapping independently for each star
     // unlike most objects in the game (e.g. solid masses) which wrap together.
     var starX = 0   // These to be overwritten
     var starY = 0
     var starCol = "#FFF"
     var starSize = 2
-    for (var i in state.stars.canvasCoords) {
-      starX = state.stars.canvasCoords[i][0]
-      starY = state.stars.canvasCoords[i][1]
-      starCol = state.stars.colours[i]
-      starSize = state.stars.sizes[i]
+    for (var i in state.world.stars.canvasCoords) {
+      starX = state.world.stars.canvasCoords[i][0]
+      starY = state.world.stars.canvasCoords[i][1]
+      starCol = state.world.stars.colours[i]
+      starSize = state.world.stars.sizes[i]
       context.fillStyle = starCol
       context.fillRect(starX, starY, starSize, starSize)
     }
@@ -656,8 +661,8 @@ var playGame = function() {
     state.world.wrapCoords.x = 5000
     state.world.wrapCoords.y = 3000
     // Currently (2017_10_22) the screen is fixed at 1200x675 px (16:9 aspect ratio)
-    // Each of the dimensions for wrapCoords here needs to be significantly bigger
-    // than the screen dimension
+    // Each of the dimensions for wrapCoords here needs to be
+    // significantly bigger than the screen dimension.
     // Also, the stars will be very near unless these dimensions are big enough!
 
     // Setup variables for game
@@ -800,8 +805,8 @@ var playGame = function() {
     state.player.ship = playerShip
     state.player.fuel = 100
     state.player.ammo = 23
-    // Note - these place the fuel and ammo on masses
-    // Might want to change this to just
+    // state.player.health = 100
+    // state.player.money = 0
 
     // Monitor key presses
     state.input.keyboard = {}
@@ -826,18 +831,16 @@ var playGame = function() {
     state.output.pageElts.angleVel = document.querySelector("#ang-vel")
     state.output.pageElts.renderTimeElt = document.querySelector("#render-time")
 
-    // state.health = 100  // Future iterations!
-    // state.money = 0
-    state.gravity = -120    // (Pixels per second per second!)
+    state.world.gravity = -120    // (Pixels per second per second!)
 
-    state.stars = []
-    state.stars.gameCoords = []
-    state.stars.canvasCoords = []
-    state.stars.colours = []
-    state.stars.sizes = []
+    state.world.stars = []
+    state.world.stars.gameCoords = []
+    state.world.stars.canvasCoords = []
+    state.world.stars.colours = []
+    state.world.stars.sizes = []
     var minSize = 1
     var maxSize = 4
-    state.stars.zoomOut = 0.75 * Math.min(
+    state.world.stars.zoomOut = 0.75 * Math.min(
       state.world.wrapCoords.x / state.output.canvasDims.size.x,
       state.world.wrapCoords.y / state.output.canvasDims.size.y
     )
@@ -854,11 +857,11 @@ var playGame = function() {
     for (var i=0; i<numberOfStars; i++) {
       starX = starMaxCoordX * (-0.5+Math.random())
       starY = starMaxCoordY * (-0.5+Math.random())
-      state.stars.gameCoords.push([starX, starY])
-      state.stars.canvasCoords.push([starX, starY])   // Will be overwritten!
+      state.world.stars.gameCoords.push([starX, starY])
+      state.world.stars.canvasCoords.push([starX, starY])   // Will be overwritten!
       colourIndex = Math.round(starColours.length * Math.random())
-      state.stars.colours.push(starColours[colourIndex])
-      state.stars.sizes.push(minSize + (maxSize-minSize)*Math.random()**2)
+      state.world.stars.colours.push(starColours[colourIndex])
+      state.world.stars.sizes.push(minSize + (maxSize-minSize)*Math.random()**2)
     }
 
   }
