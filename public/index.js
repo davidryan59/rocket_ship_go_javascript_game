@@ -19,7 +19,7 @@ var playGame = function() {
     y += dT * v
     massAngle = ( massAngle + dT * angVeloc) % 360
     if (mass.affectedByGravity) {
-      v += dT * grav
+      v += dT * grav * mass.gravityMultiple   // Multiple is usually 1!
     }
     // Save mass variables if change is possible
     if (mass.moves) {
@@ -161,7 +161,6 @@ var playGame = function() {
   }
 
   var drawMassesOntoCanvas = function() {
-    // console.log(state)
     var mass = null
     var context = state.context
     for (var i in state.masses) {
@@ -238,9 +237,11 @@ var playGame = function() {
     var spin = 400 * (-0.5 + Math.random())
     var bulletX = state.shipMass.x + 50 * Math.sin(degreesToRadians * state.shipMass.angle)
     var bulletY = state.shipMass.y + 50 * Math.cos(degreesToRadians * state.shipMass.angle)
-    var bullet = addNewRandomGameMass(bulletX, bulletY, bulletSides, bulletMaxRadius, bulletMaxRadius-bulletDeformity, 3)
+    var bullet = addNewMass(bulletX, bulletY, bulletSides, bulletMaxRadius, bulletMaxRadius-bulletDeformity, 3)
+    bullet.massType = "bullet"
     bullet.moves = true
     bullet.affectedByGravity = true
+    bullet.gravityMultiple = 0.1
     bullet.isWall = false
     bullet.u = state.shipMass.u + bulletRelativeSpeed * Math.sin(degreesToRadians * state.shipMass.angle)
     bullet.v = state.shipMass.v + bulletRelativeSpeed * Math.cos(degreesToRadians * state.shipMass.angle)
@@ -397,7 +398,7 @@ var playGame = function() {
     }
   }
 
-  var calculateMass = function(mass) {
+  var recalculatePhysicsStats = function(mass) {
     var density = mass.density
     var angleRadii = mass.angleRadii
     var calcMass = 0
@@ -407,6 +408,7 @@ var playGame = function() {
     var r2 = 0
     var area = 0
     var segments = angleRadii.length - 1
+    var maxRadius = angleRadii[0][1]
     for (var i=0; i<segments; i++) {
       a1 = angleRadii[i][0]
       r1 = angleRadii[i][1]
@@ -414,82 +416,113 @@ var playGame = function() {
       r2 = angleRadii[i+1][1]
       area = 0.5 * r1 * r2 * Math.sin ( degreesToRadians * (a2-a1) )  // Sine area rule
       calcMass += density * area
+      maxRadius = Math.max(maxRadius, r2)
     }
     mass.mass = calcMass  // :)
-    console.log("Calculating mass", mass)
+    mass.maxRadius = maxRadius;
+    mass.physicsStatsInvalid = false
   }
 
-  var addNewRandomGameMass = function(x, y, points, maxRadius, minRadius, density) {
-    var gameMass = {}
-    gameMass.density = density   // Do more with this later
-    gameMass.mass = 1      // Do more with this later
-    gameMass.isWall = true   // Use this to ignore wall-wall collisions
-    gameMass.x = x
-    gameMass.y = y
-    gameMass.graphics = {}
+  var recalculateAllPhysicsStats = function() {
+    for (var mass in state.masses) {
+      if (mass.physicsStatsInvalid) {
+        recalculatePhysicsStats(mass)
+      }
+    }
+  }
+
+  var removeMass = function(mass) {
+    // Implement this here
+
+  }
+
+  var removeDeadMasses = function() {
+    for (var mass in state.masses) {
+      if (mass.toBeRemoved) {
+        removeMass(mass)
+      }
+    }
+  }
+
+  var addNewMass = function(x, y, points, maxRadius, minRadius, density) {
+    // There is randomisation between minRadius and maxRadius
+    // Set these as equal for a deterministic mass (e.g. the ship, or a round bullet)
+    // points are currently evenly spread around 360 degrees.
+    var newMass = {}
+    newMass.massType = "wall"
+    newMass.isWall = true       // Use this to ignore wall-wall collisions
+    newMass.density = density   // Used to calculate mass
+    newMass.mass = 1            // Recalculated later
+    newMass.toBeRemoved = false   // Use this to mark masses for removal before next loop
+    newMass.x = x
+    newMass.y = y
+    newMass.graphics = {}
     // Foreground / Main rendered at zoom = zoomOut = 1
     // Background rendered at higher zoomOut > 1  (zoomOut = 1/zoom)
-    gameMass.graphics.main = {}
-    gameMass.graphics.back = {}
-    gameMass.graphics.back.zoomOut = 1.1
-    gameMass.graphics.main.fillStyle = "#999"
-    gameMass.graphics.main.strokeStyle = "#AC9"
-    gameMass.graphics.main.lineWidth = 3
-    gameMass.graphics.back.fillStyle = "#444"
-    gameMass.graphics.back.strokeStyle = "#669"
-    gameMass.graphics.back.lineWidth = 2
+    newMass.graphics.main = {}
+    newMass.graphics.back = {}
+    newMass.graphics.back.zoomOut = 1.1
+    newMass.graphics.main.fillStyle = "#999"
+    newMass.graphics.main.strokeStyle = "#AC9"
+    newMass.graphics.main.lineWidth = 3
+    newMass.graphics.back.fillStyle = "#444"
+    newMass.graphics.back.strokeStyle = "#669"
+    newMass.graphics.back.lineWidth = 2
     // Note: state.masses will be rendered in the order they are stored!
     // However, it will only look correct if the objects with
     // higher zoomOuts are rendered first
     // so there ought to be checking of order and sorting
     // perhaps every 0.25 seconds (10 frames/loops or so)
-    gameMass.angle = 0
-    gameMass.maxRadius = maxRadius
-    gameMass.moves = false
-    gameMass.u = 0    // Anything which doesn't move should have u, v, angVeloc = 0
-    gameMass.v = 0
-    gameMass.angVeloc = 0
-    gameMass.affectedByGravity = false  // Things should only be affected by gravity if they move!
-    gameMass.angleRadii = []
+    newMass.angle = 0
+    newMass.maxRadius = maxRadius        // Recalculated later
+    newMass.moves = false
+    newMass.u = 0    // Anything which doesn't move should have u, v, angVeloc = 0
+    newMass.v = 0
+    newMass.angVeloc = 0
+    newMass.affectedByGravity = false  // Things should only be affected by gravity if they move!
+    newMass.gravityMultiple = 1        // A gravity multiplier. Can make things less or more affected!
+    newMass.angleRadii = []
     // Give some space for dealing with collisions
-    gameMass.collisionWith = {}
-    gameMass.collisionWith.index = null
-    gameMass.collisionWith.mass = 1
-    gameMass.collisionWith.u = 0
-    gameMass.collisionWith.v = 0
-    gameMass.collisionWith.angVeloc = 0
+    newMass.collisionWith = {}
+    newMass.collisionWith.index = null
+    newMass.collisionWith.mass = 1
+    newMass.collisionWith.u = 0
+    newMass.collisionWith.v = 0
+    newMass.collisionWith.angVeloc = 0
     // First element
     var nextAngle = 0
     var nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
     var nextElt = [nextAngle, nextRadius]
-    gameMass.angleRadii.push(nextElt)
+    newMass.angleRadii.push(nextElt)
     for (var i=1; i<points; i++) {
       // Middle elements
       nextAngle = 360 * i / points
       nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
       nextElt = [nextAngle, nextRadius]
-      gameMass.angleRadii.push(nextElt)
+      newMass.angleRadii.push(nextElt)
     }
     // Last element
     nextAngle = 360
-    nextRadius = gameMass.angleRadii[0][1]
+    nextRadius = newMass.angleRadii[0][1]
     nextElt = [nextAngle, nextRadius]
-    gameMass.angleRadii.push(nextElt)
-    calculateMass(gameMass)
-    // Admin fields for game mass
-    !gameMass.maxRadius ? gameMass.maxRadius = 0 : null;
-    !gameMass.gameCoordsValid ? gameMass.gameCoordsValid = false : null
-    gameMass.gameCoords = gameMass.angleRadii.slice()   // Shallow copy! Need deep copy!
-    gameMass.canvasMainCoords = gameMass.angleRadii.slice()
-    gameMass.canvasBackCoords = gameMass.angleRadii.slice()
-    for (var i in gameMass.gameCoords) {
-      gameMass.gameCoords[i] = gameMass.gameCoords[i].slice()  // Deep copy done here
-      gameMass.canvasMainCoords[i] = gameMass.canvasMainCoords[i].slice()
-      gameMass.canvasBackCoords[i] = gameMass.canvasBackCoords[i].slice()
+    newMass.angleRadii.push(nextElt)
+    // (Re)calculate the important physics stats, such as maximum radius and mass
+    newMass.physicsStatsInvalid = true
+    recalculatePhysicsStats(newMass)
+    // Admin fields for the mass
+    !newMass.maxRadius ? newMass.maxRadius = 0 : null;
+    !newMass.gameCoordsValid ? newMass.gameCoordsValid = false : null
+    newMass.gameCoords = newMass.angleRadii.slice()   // Shallow copy! Need deep copy!
+    newMass.canvasMainCoords = newMass.angleRadii.slice()
+    newMass.canvasBackCoords = newMass.angleRadii.slice()
+    for (var i in newMass.gameCoords) {
+      newMass.gameCoords[i] = newMass.gameCoords[i].slice()  // Deep copy done here
+      newMass.canvasMainCoords[i] = newMass.canvasMainCoords[i].slice()
+      newMass.canvasBackCoords[i] = newMass.canvasBackCoords[i].slice()
     }
     // Add to game masses
-    state.masses.push(gameMass)
-    return gameMass
+    state.masses.push(newMass)
+    return newMass
   }
 
   var setupState = function() {
@@ -563,7 +596,7 @@ var playGame = function() {
       points = 3 + Math.round(21*Math.random())
       maxRadius = 50 + Math.round(150*Math.random())
       minRadius = 10 + Math.round(0.9*maxRadius*Math.random())
-      theMass = addNewRandomGameMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius, density)
+      theMass = addNewMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius, density)
       theMass.graphics.back.zoomOut = 1.05 + 0.5*(1-wallCoordSet[i][2]**0.5)
       theMass.moves = true
     }
@@ -597,7 +630,8 @@ var playGame = function() {
     }
 
     // Make the game player
-    var playerShip = addNewRandomGameMass(canvasCentre.x, canvasCentre.y, 5, 41, 41, 0.3, 3)
+    var playerShip = addNewMass(canvasCentre.x, canvasCentre.y, 5, 41, 41, 0.3, 3)
+    playerShip.massType = "ship"
     playerShip.angleRadii[1][1]=13
     playerShip.angleRadii[2][1]=23
     playerShip.angleRadii[3][1]=23
@@ -681,8 +715,6 @@ var playGame = function() {
     state.view = view
     state.shipMass = playerShip
 
-    // console.log(state)
-
   }
 
   window.mainLoop = function(timeLoopStart) {
@@ -705,15 +737,17 @@ var playGame = function() {
       doTiming(timeLoopStart)
       respondToKeyboard()
       updateViewCoords()
+      recalculateAllPhysicsStats()
       updateMassesGameCoords()
       updateMassesCanvasCoords()
 
       // // Dealing with collisions - more work needed here!
-      // findCollisionsBetweenMasses()
-      // dealWithCollisions()
+      findCollisionsBetweenMasses()
+      dealWithCollisions()
 
       drawCanvas()
       updateDisplay()
+      removeDeadMasses()
       var timeLoopEnd = window.performance.now()
       state.timing.msRenderTime = timeLoopEnd - timeLoopStart
     }
