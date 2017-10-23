@@ -369,7 +369,11 @@ var playGame = function() {
   }
 
   var respondReliablyToKeyUps = function(eventKeyboardCode) {
-    // This runs, even if the main loop isn't running!
+    // This runs in background, even if the main loop isn't running!
+    if ( eventKeyboardCode === "KeyQ" ) {
+      // Do P things on Q
+      eventKeyboardCode = "KeyP"  // Extra pause button
+    }
     if ( state.run.paused && eventKeyboardCode === "KeyP" ) {
       // Do pause handling on keyups, not keydowns!
       if (state.run.waitingForPauseKeyup) {
@@ -385,24 +389,28 @@ var playGame = function() {
 
   var respondReliablyToKeyDowns = function(eventKeyboardCode) {
     // This runs, even if the main loop isn't running!
-    // Currently nothing extra to do - its in 'respondToKeyboardDuringMainLoop'
+    // Currently nothing extra to do, on top of what's already run off main loop
   }
 
   var respondToKeyboardDuringMainLoop = function() {
     // This only runs when main loop is active
     if (state.fuel > 0) {
+      // Turn left
       if (state.keysMonitored.ArrowLeft) {
         state.shipMass.angVeloc -= 15
         state.fuel -= 0.001
       }
+      // Turn right
       if (state.keysMonitored.ArrowRight) {
         state.shipMass.angVeloc += 15
         state.fuel -= 0.001
       }
+      // Rotate freely
       if (!state.keysMonitored.ArrowLeft && !state.keysMonitored.ArrowRight) {
         state.shipMass.angVeloc *= 0.92
         // If deducting fuel, make it proportional to abs of angVeloc
       }
+      // Stop rotating
       if (state.keysMonitored.ArrowUp) {
         state.shipMass.u += 10 * Math.sin(degreesToRadians*state.shipMass.angle)
         state.shipMass.v += 10 * Math.cos(degreesToRadians*state.shipMass.angle)
@@ -410,6 +418,7 @@ var playGame = function() {
       }
     }
     if (state.ammo > 0) {
+      // Fire bullet
       if (state.keysMonitored.Space) {
         fireBullet()
         state.keysMonitored.Space = false
@@ -417,10 +426,8 @@ var playGame = function() {
         // Deal with auto-repeat keydowns in future
       }
     }
-    // if (state.keysMonitored.KeyQ) {
-    //   state.continueLooping = false
-    // }
-    if (!state.run.paused && state.keysMonitored.KeyP) {
+    // Pause game
+    if (!state.run.paused && (state.keysMonitored.KeyP || state.keysMonitored.KeyQ)) {
       state.run.paused = true
       state.run.waitingForPauseKeyup = true
     }
@@ -692,9 +699,9 @@ var playGame = function() {
     state.keysMonitored.ArrowLeft = false
     state.keysMonitored.ArrowRight = false
     state.keysMonitored.ArrowUp = false
-    // state.keysMonitored.KeyQ = false
-    state.keysMonitored.KeyP = false
     state.keysMonitored.Space = false
+    state.keysMonitored.KeyP = false
+    state.keysMonitored.KeyQ = false    // Currently used as an extra pause button
 
     // Setup links to HTML items
     state.htmlElements = {}
