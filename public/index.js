@@ -1,7 +1,16 @@
 var playGame = function() {
 
+  // Need multiple files!
+  // Something like: var functionFile = require('functions.js') (?)
+
+  // State variable - all game state is on this object!
+  // Allows persistent properties between browser animation frames,
+  // pausing, etc
   var state = {}
+
+  // Shortcuts to common constants here
   var degreesToRadians = Math.PI / 180
+  var radiansToDegrees = 1 / degreesToRadians
 
   var updateMassGameCoords = function(mass) {
     // Get state variables
@@ -116,10 +125,10 @@ var playGame = function() {
   var doTiming = function(tFrame) {
     var prevLoopStart = state.timing.thisLoopStart
     var thisLoopStart = tFrame
-    if (state.run.comingOffPause) {
+    if (state.control.comingOffPause) {
       // Reset the prevLoopStart since its going to be a long time ago!
       prevLoopStart = thisLoopStart - 16        // Deduct a single frame
-      state.run.comingOffPause = false
+      state.control.comingOffPause = false
     }
     var msBetweenLoops = thisLoopStart-prevLoopStart
     state.timing.prevLoopStart = prevLoopStart
@@ -130,11 +139,11 @@ var playGame = function() {
   var updateViewCoords = function() {
     var prevX = state.view.pos.x    // Pixels
     var prevY = state.view.pos.y    // Pixels
-    var followX = state.shipMass.x
-    var followY = state.shipMass.y
+    var followX = state.player.ship.x
+    var followY = state.player.ship.y
     var dX = followX-prevX
     var dY = followY-prevY
-    var d2 = state.shipMass.u**2 + state.shipMass.v**2
+    var d2 = state.player.ship.u**2 + state.player.ship.v**2
     // Sometimes view can stay behind the player ship so far
     // it is off the screen! Fix this.
     state.view.pos.x = prevX + dX / 5
@@ -219,14 +228,14 @@ var playGame = function() {
   }
 
   var updateDisplay = function(){
-    if (state.loopCount % 7 === 0) {
+    if (state.control.loopCount % 7 === 0) {
       state.timing.renderTimeElt.innerText = Math.round(state.timing.msRenderTime )
-      state.htmlElements.x.innerText = Math.round(state.shipMass.x)
-      state.htmlElements.y.innerText = Math.round(state.shipMass.y)
-      state.htmlElements.u.innerText = Math.round(state.shipMass.u)
-      state.htmlElements.v.innerText = Math.round(state.shipMass.v)
-      state.htmlElements.anglePos.innerText = Math.round(state.shipMass.angle)
-      state.htmlElements.angleVel.innerText = Math.round(state.shipMass.angVeloc)
+      state.htmlElements.x.innerText = Math.round(state.player.ship.x)
+      state.htmlElements.y.innerText = Math.round(state.player.ship.y)
+      state.htmlElements.u.innerText = Math.round(state.player.ship.u)
+      state.htmlElements.v.innerText = Math.round(state.player.ship.v)
+      state.htmlElements.anglePos.innerText = Math.round(state.player.ship.angle)
+      state.htmlElements.angleVel.innerText = Math.round(state.player.ship.angVeloc)
       state.htmlElements.fuel.innerText = Math.round(state.fuel)
       state.htmlElements.ammo.innerText = Math.round(state.ammo)
     }
@@ -240,16 +249,16 @@ var playGame = function() {
     var bulletSpinRecoil = 0.5
     var bulletSides = 3 + Math.round(30 * Math.random()**10)   // Bias towards fewer edges
     var spin = 400 * (-0.5 + Math.random())
-    var bulletX = state.shipMass.x + 50 * Math.sin(degreesToRadians * state.shipMass.angle)
-    var bulletY = state.shipMass.y + 50 * Math.cos(degreesToRadians * state.shipMass.angle)
+    var bulletX = state.player.ship.x + 50 * Math.sin(degreesToRadians * state.player.ship.angle)
+    var bulletY = state.player.ship.y + 50 * Math.cos(degreesToRadians * state.player.ship.angle)
     var bullet = addNewMass(bulletX, bulletY, bulletSides, bulletMaxRadius, bulletMaxRadius-bulletDeformity, 3)
     bullet.massType = "bullet"
     bullet.moves = true
     bullet.affectedByGravity = true
     bullet.gravityMultiple = 0.1
     bullet.isWall = false
-    bullet.u = state.shipMass.u + bulletRelativeSpeed * Math.sin(degreesToRadians * state.shipMass.angle)
-    bullet.v = state.shipMass.v + bulletRelativeSpeed * Math.cos(degreesToRadians * state.shipMass.angle)
+    bullet.u = state.player.ship.u + bulletRelativeSpeed * Math.sin(degreesToRadians * state.player.ship.angle)
+    bullet.v = state.player.ship.v + bulletRelativeSpeed * Math.cos(degreesToRadians * state.player.ship.angle)
     bullet.angVeloc = spin
     bullet.graphics.main = {}
     bullet.graphics.main.fillStyle = "#0F0"
@@ -268,9 +277,9 @@ var playGame = function() {
       bullet.graphics.main.fillStyle = "#FF0"
       bullet.graphics.main.strokeStyle = "#00F"
     }
-    state.shipMass.u -= bulletVelocRecoil * Math.sin(degreesToRadians*state.shipMass.angle)
-    state.shipMass.v -= bulletVelocRecoil * Math.cos(degreesToRadians*state.shipMass.angle)
-    state.shipMass.angVeloc -= bulletSpinRecoil * spin
+    state.player.ship.u -= bulletVelocRecoil * Math.sin(degreesToRadians*state.player.ship.angle)
+    state.player.ship.v -= bulletVelocRecoil * Math.cos(degreesToRadians*state.player.ship.angle)
+    state.player.ship.angVeloc -= bulletSpinRecoil * spin
     state.ammo--
   }
 
@@ -282,7 +291,68 @@ var playGame = function() {
     return true
   }
 
+  var measureModularOffset = function(coord1, coord2, wrapDistance) {
+    var result = coord2 - coord1
+    // If there was no wrapping, leave it here!
+    // However, there is wrapping.
+    // Want to measure distance between -wrapDistance/2 to +wrapDistance/2
+    var halfWrapDistance = wrapDistance/2
+    result += halfWrapDistance
+    result = distance % wrapDistance
+    result -= halfWrapDistance
+    return result
+  }
+
+  var measureDistance = function(x1, y1, x2, y2) {
+    var wrapX = state.wrapX
+    var wrapY = state.wrapY
+    var offsetX = measureModularOffset(x1, x2, wrapX)
+    var offsetY = measureModularOffset(y1, y2, wrapY)
+    // Offsets are from -wrap/2 to +wrap/2 in each direction
+    return Math.sqrt(offsetX**2 + offsetY**2)
+  }
+
+  var measureAngleDegrees = function(x1, y1, x2, y2, wrapX, wrapY) {
+    // See where mass game-coords are calculated
+    // In degrees:
+    // Up=0, up-right=45, right=90, right-down=135, down=180
+    // Down+1 = -179, down-left=-135, left=-90, left-up = -45, up=0
+    var xD = measureModularOffset(x1, x2, state.wrapX)
+    var yD = measureModularOffset(y1, y2, state.wrapY)
+    // Deal with case x offset = 0
+    if (xD === 0) {
+      // Will prevent division by zero below
+      if (yD < 0) {
+        return 180
+      } else {
+        return 0
+      }
+    }
+    // Deal with case x offset < 1
+    var resultSign = 1
+    if (xD < 0) {
+      resultSign = -1
+      xD = -xD
+    }
+    // Final case: x offset > 1
+    var angle = radiansToDegrees * Math.atan(yD/xD)
+    // angle = 0 for 'right'
+    // angle -> 90 for 'up'
+    // angle -> -90 for 'down'
+    return 90 - angle
+  }
+
   var markAsCollided = function(i, j) {
+    // var xi = state.masses[i].x
+    // var yi = state.masses[i].y
+    // var xj = state.masses[j].x
+    // var yj = state.masses[j].y
+    // var wrapX = state.wrapX
+    // var wrapY = state.wrapY
+    // var diffX = xj-xi
+    // var diffY = yj-yi
+    // var sign_xi = Math.
+    // var angle =
     // Mark i as having collided with j
     state.masses[i].collisionWith.index = j
     state.masses[i].collisionWith.mass = state.masses[j].mass
@@ -374,14 +444,14 @@ var playGame = function() {
       // Do P things on Q
       eventKeyboardCode = "KeyP"  // Extra pause button
     }
-    if ( state.run.paused && eventKeyboardCode === "KeyP" ) {
+    if ( state.control.paused && eventKeyboardCode === "KeyP" ) {
       // Do pause handling on keyups, not keydowns!
-      if (state.run.waitingForPauseKeyup) {
-        state.run.waitingForPauseKeyup = false
+      if (state.control.waitingForPauseKeyup) {
+        state.control.waitingForPauseKeyup = false
       } else {
         // Restart main loop!
-        state.run.paused = false
-        state.run.comingOffPause = true
+        state.control.paused = false
+        state.control.comingOffPause = true
         window.requestAnimationFrame(mainLoop)
       }
     }
@@ -389,47 +459,47 @@ var playGame = function() {
 
   var respondReliablyToKeyDowns = function(eventKeyboardCode) {
     // This runs, even if the main loop isn't running!
-    // Currently nothing extra to do, on top of what's already run off main loop
+    // Currently nothing extra to do, on top of what's already control off main loop
   }
 
   var respondToKeyboardDuringMainLoop = function() {
     // This only runs when main loop is active
     if (state.fuel > 0) {
       // Turn left
-      if (state.keysMonitored.ArrowLeft) {
-        state.shipMass.angVeloc -= 15
+      if (state.input.keyboard.ArrowLeft) {
+        state.player.ship.angVeloc -= 15
         state.fuel -= 0.001
       }
       // Turn right
-      if (state.keysMonitored.ArrowRight) {
-        state.shipMass.angVeloc += 15
+      if (state.input.keyboard.ArrowRight) {
+        state.player.ship.angVeloc += 15
         state.fuel -= 0.001
       }
       // Rotate freely
-      if (!state.keysMonitored.ArrowLeft && !state.keysMonitored.ArrowRight) {
-        state.shipMass.angVeloc *= 0.92
+      if (!state.input.keyboard.ArrowLeft && !state.input.keyboard.ArrowRight) {
+        state.player.ship.angVeloc *= 0.92
         // If deducting fuel, make it proportional to abs of angVeloc
       }
       // Stop rotating
-      if (state.keysMonitored.ArrowUp) {
-        state.shipMass.u += 10 * Math.sin(degreesToRadians*state.shipMass.angle)
-        state.shipMass.v += 10 * Math.cos(degreesToRadians*state.shipMass.angle)
+      if (state.input.keyboard.ArrowUp) {
+        state.player.ship.u += 10 * Math.sin(degreesToRadians*state.player.ship.angle)
+        state.player.ship.v += 10 * Math.cos(degreesToRadians*state.player.ship.angle)
         state.fuel -= 0.005
       }
     }
     if (state.ammo > 0) {
       // Fire bullet
-      if (state.keysMonitored.Space) {
+      if (state.input.keyboard.Space) {
         fireBullet()
-        state.keysMonitored.Space = false
+        state.input.keyboard.Space = false
         // One bullet per SPACE press
         // Deal with auto-repeat keydowns in future
       }
     }
     // Pause game
-    if (!state.run.paused && (state.keysMonitored.KeyP || state.keysMonitored.KeyQ)) {
-      state.run.paused = true
-      state.run.waitingForPauseKeyup = true
+    if (!state.control.paused && (state.input.keyboard.KeyP || state.input.keyboard.KeyQ)) {
+      state.control.paused = true
+      state.control.waitingForPauseKeyup = true
     }
   }
 
@@ -526,6 +596,7 @@ var playGame = function() {
     newMass.collisionWith = {}
     newMass.collisionWith.index = null
     newMass.collisionWith.mass = 1
+    newMass.collisionWith.angle = 0
     newMass.collisionWith.u = 0
     newMass.collisionWith.v = 0
     newMass.collisionWith.angVeloc = 0
@@ -566,12 +637,16 @@ var playGame = function() {
   }
 
   var setupState = function() {
-    state.run = {}
-    state.run.paused = false
-    state.run.waitingForPauseKeyup = false
-    state.run.comingOffPause = false
-    state.loopCount = 0
-    // state.run.continueLooping = true  // No longer used - previously on q key
+
+    // Setup main state categories here
+    state.control = {}
+    state.player = {}
+
+    state.control.paused = false
+    state.control.waitingForPauseKeyup = false
+    state.control.comingOffPause = false
+    state.control.loopCount = 0
+    // state.control.continueLooping = true  // No longer used - previously on q key
 
     state.wrapCoords = {}
     state.wrapCoords.x = 5000
@@ -693,15 +768,17 @@ var playGame = function() {
     playerShip.graphics.back.fillStyle = "#035"
     playerShip.graphics.back.strokeStyle = "#555"
     playerShip.graphics.back.lineWidth = 2
+    state.player.ship = playerShip
 
     // Monitor key presses
-    state.keysMonitored = {}
-    state.keysMonitored.ArrowLeft = false
-    state.keysMonitored.ArrowRight = false
-    state.keysMonitored.ArrowUp = false
-    state.keysMonitored.Space = false
-    state.keysMonitored.KeyP = false
-    state.keysMonitored.KeyQ = false    // Currently used as an extra pause button
+    state.input = {}
+    state.input.keyboard = {}
+    state.input.keyboard.ArrowLeft = false
+    state.input.keyboard.ArrowRight = false
+    state.input.keyboard.ArrowUp = false
+    state.input.keyboard.Space = false
+    state.input.keyboard.KeyP = false
+    state.input.keyboard.KeyQ = false    // Currently used as an extra pause button
 
     // Setup links to HTML items
     state.htmlElements = {}
@@ -756,15 +833,14 @@ var playGame = function() {
     state.timing = timing
     state.context = context
     state.view = view
-    state.shipMass = playerShip
 
   }
 
   window.mainLoop = function(timeLoopStart) {
     // timeLoopStart is a decimal number, a time precise to 0.005ms :)
     // Can probably merge these two variables into one?
-    // if (state.run.continueLooping && !state.run.paused) {
-    if (!state.run.paused) {
+    // if (state.control.continueLooping && !state.control.paused) {
+    if (!state.control.paused) {
       window.requestAnimationFrame(mainLoop)
       // Make a request for next animation frame
       // at the top of this animation frame
@@ -777,7 +853,7 @@ var playGame = function() {
     // frame displayed by the browser
     // i.e. browser and main loop are synchronised
 
-    state.loopCount++
+    state.control.loopCount++
     doTiming(timeLoopStart)
     respondToKeyboardDuringMainLoop()
     updateViewCoords()
@@ -786,6 +862,7 @@ var playGame = function() {
     updateMassesCanvasCoords()
 
     // // Dealing with collisions - more work needed here!
+    // // Can comment these two in and out to turn collision detection on/off
     // findCollisionsBetweenMasses()
     // dealWithCollisions()
 
@@ -806,18 +883,18 @@ var playGame = function() {
   window.addEventListener('keydown', function(event){
     var eventKeyboardCode = event.code
     // console.log(eventKeyboardCode)
-    var monitoredCodeState = state.keysMonitored[eventKeyboardCode]
+    var monitoredCodeState = state.input.keyboard[eventKeyboardCode]
     // Undefined if not monitored, true or false if monitored
     if (monitoredCodeState===false) {
-      state.keysMonitored[eventKeyboardCode] = true
+      state.input.keyboard[eventKeyboardCode] = true
     }
     respondReliablyToKeyDowns(eventKeyboardCode)
   })
   window.addEventListener('keyup', function(event){
     var eventKeyboardCode = event.code
-    var monitoredCodeState = state.keysMonitored[eventKeyboardCode]
+    var monitoredCodeState = state.input.keyboard[eventKeyboardCode]
     if (monitoredCodeState===true) {
-      state.keysMonitored[eventKeyboardCode] = false
+      state.input.keyboard[eventKeyboardCode] = false
     }
     respondReliablyToKeyUps(eventKeyboardCode)
   })
