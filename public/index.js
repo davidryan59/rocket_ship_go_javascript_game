@@ -300,32 +300,19 @@ var playGame = function() {
     state.player.ammo--
   }
 
-  var checkIfTrulyCollided = function(i, j) {
-    // Maximum radii coincide
-    // Might or might not be a collision
-    // For now - assume there is!
-    // More work needed here!
-    return true
-  }
-
   var measureModularOffset = function(coord1, coord2, wrapDistance) {
-
-    // // 1) Non-modular version
-    // return coord2 - coord1
-
-    // 2) Modular version - USE THIS ONE
-    return (coord2-coord1) % wrapDistance
-    // In JavaScript, 1%3=1, and -1%3=-1 not 2
-    // Hence, we get the smallest absolute value
-    // using the % function.
-
-    // // 3) Modular version where -1%3=2
-    // var halfWrapDistance = wrapDistance/2
-    // result += halfWrapDistance
-    // result = result % wrapDistance
-    // result -= halfWrapDistance
-    // return result
-
+    // var halfDistance = 0.5 * wrapDistance    // Slower
+    var halfDistance = wrapDistance >> 1        // Faster!
+    var result = (coord2-coord1) % wrapDistance
+    // For positive result, between 0 and wrapDistance
+    // For negative result, between -wrapDistance and 0
+    // If abs value greater than halfDistance, find a number closer to 0
+    if (halfDistance < result) {
+      result -= wrapDistance
+    } else if (result < -halfDistance) {
+      result += wrapDistance
+    }
+    return result
   }
 
   var measureDistance = function(x1, y1, x2, y2) {
@@ -365,12 +352,34 @@ var playGame = function() {
     return resultSign * (90 - angle)
   }
 
+  var checkIfTrulyCollided = function(i, j) {
+    // Maximum radii coincide
+    // Might or might not be a collision
+    // For now - assume there is!
+    // More work needed here!
+    return true
+  }
+
   var markAsCollided = function(i, j) {
     // Calculate collision angle
     var angle = measureAngleDegrees(
       state.world.masses[i].x, state.world.masses[i].y,
       state.world.masses[j].x, state.world.masses[j].y
     )
+
+    // // DEBUG
+    // var offsetXR = Math.round(measureModularOffset(
+    //   state.world.masses[i].x, state.world.masses[j].x, state.world.wrapCoords.x
+    // ))
+    // var offsetYR = Math.round(measureModularOffset(
+    //   state.world.masses[i].y, state.world.masses[j].y, state.world.wrapCoords.y
+    // ))
+    // var distanceR = Math.round(measureDistance(
+    //   state.world.masses[i].x, state.world.masses[i].y,
+    //   state.world.masses[j].x, state.world.masses[j].y
+    // ))
+    // console.log("Collision: offset", offsetXR, offsetYR, ", distance", distanceR, ", angle", Math.round(angle))
+
     var massI = state.world.masses[i].mass
     var massJ = state.world.masses[j].mass
     var massRatioOfI = massI/(massI+massJ)
@@ -407,6 +416,7 @@ var playGame = function() {
     var radiusSum = 0
     var countMasses = state.world.masses.length
     for (var i=0; i<countMasses; i++) {
+      // Only allow one collision per mass per frame
       if (state.world.masses[i].collisionWith.index === null) {
         xi = state.world.masses[i].x
         yi = state.world.masses[i].y
@@ -442,12 +452,11 @@ var playGame = function() {
     var m2 = mass.collisionWith.mass
     var u2 = mass.collisionWith.u
     var v2 = mass.collisionWith.v
-    var angleDirectlyAway = mass.collisionWith.angle
-    var massSumInv = 1/(m1+m2)
     var damping = state.constants.collisions.dampingFactor
+    var massSumInv = 1/(m1+m2)
     var massRatioOfOther = mass.collisionWith.massRatio
-    var massRatioOfThis = 1-massRatioOfOther
     var moveAwayPx = state.constants.collisions.moveAwayPx
+    var angleDirectlyAway = mass.collisionWith.angle
     // Change the momentum according to a (damped) elastic collision
     mass.u = damping * massSumInv * (u1 * (m1-m2) + 2*m2*u2 )
     mass.v = damping * massSumInv * (v1 * (m1-m2) + 2*m2*v2 )
@@ -833,6 +842,10 @@ var playGame = function() {
       theMass = addNewMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius, density)
       theMass.graphics.back.zoomOut = 1.05 + 0.5*(1-wallCoordSet[i][2]**0.5)
       theMass.moves = true
+
+      // // DEBUG
+      // theMass.toBeRemoved = true
+
     }
 
     var j=0
@@ -862,6 +875,9 @@ var playGame = function() {
       state.world.masses[i].graphics.back.fillStyle = "#665511"
       state.world.masses[i].graphics.back.strokeStyle = "#779977"
     }
+
+    // // DEBUG
+    // addNewMass(state.output.canvasDims.centre.x, state.output.canvasDims.centre.y - 800, 10, 600, 550, 10)
 
     // Make the game player
     var playerShip = addNewMass(state.output.canvasDims.centre.x, state.output.canvasDims.centre.y, 5, 41, 41, 0.3, 3)
