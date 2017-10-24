@@ -15,7 +15,7 @@ var playGame = function() {
   var updateMassGameCoords = function(mass) {
     // Get state variables
     var grav = state.world.gravity        // Pixels per second per second
-    var dT = state.control.timing.msBetweenLoops / 1000    // in seconds
+    var dT = 0.001 * state.control.timing.msBetweenLoops    // in seconds
     // Get mass variables
     var x = mass.x
     var y = mass.y
@@ -134,6 +134,7 @@ var playGame = function() {
     state.control.timing.prevLoopStart = prevLoopStart
     state.control.timing.thisLoopStart = thisLoopStart
     state.control.timing.msBetweenLoops = msBetweenLoops
+    state.player.time += 0.001 * msBetweenLoops
   }
 
   var updateViewCoords = function() {
@@ -146,8 +147,8 @@ var playGame = function() {
     var d2 = state.player.ship.u**2 + state.player.ship.v**2
     // Sometimes view can stay behind the player ship so far
     // it is off the screen! Fix this.
-    state.output.view.pos.x = prevX + dX / 5
-    state.output.view.pos.y = prevY + dY / 5
+    state.output.view.pos.x = prevX + 0.2 * dX
+    state.output.view.pos.y = prevY + 0.2 * dY
     // When the player ship stops momentarily, the screen zooms in and out
     // very fast. Fix this.
     state.output.view.zoom = 1  //0.92+0.08/(1+0.0001*d2)
@@ -234,8 +235,11 @@ var playGame = function() {
 
   var updateDisplay = function(){
     if (state.control.loopCount % 7 === 0) {
+      state.output.pageElts.time.innerText = Math.round(state.player.time)
       state.output.pageElts.fuel.innerText = Math.round(state.player.fuel)
       state.output.pageElts.ammo.innerText = Math.round(state.player.ammo)
+      state.output.pageElts.health.innerText = Math.round(state.player.health)
+      state.output.pageElts.coin.innerText = Math.round(state.player.coin)
       state.output.pageElts.x.innerText = Math.round(state.player.ship.x)
       state.output.pageElts.y.innerText = Math.round(state.player.ship.y)
       state.output.pageElts.u.innerText = Math.round(state.player.ship.u)
@@ -303,34 +307,32 @@ var playGame = function() {
     // Want to measure distance between -wrapDistance/2 to +wrapDistance/2
     var halfWrapDistance = wrapDistance/2
     result += halfWrapDistance
-    result = distance % wrapDistance
+    result = result % wrapDistance
     result -= halfWrapDistance
     return result
   }
 
   var measureDistance = function(x1, y1, x2, y2) {
-    var wrapX = state.world.wrapCoords.x
-    var wrapY = state.world.wrapCoords.y
-    var offsetX = measureModularOffset(x1, x2, wrapX)
-    var offsetY = measureModularOffset(y1, y2, wrapY)
+    var offsetX = measureModularOffset(x1, x2, state.world.wrapCoords.x)
+    var offsetY = measureModularOffset(y1, y2, state.world.wrapCoords.y)
     // Offsets are from -wrap/2 to +wrap/2 in each direction
     return Math.sqrt(offsetX**2 + offsetY**2)
   }
 
-  var measureAngleDegrees = function(x1, y1, x2, y2, wrapX, wrapY) {
+  var measureAngleDegrees = function(x1, y1, x2, y2) {
     // See where mass game-coords are calculated
     // In degrees:
     // Up=0, up-right=45, right=90, right-down=135, down=180
     // Down+1 = -179, down-left=-135, left=-90, left-up = -45, up=0
-    var xD = measureModularOffset(x1, x2, state.wrapX)
-    var yD = measureModularOffset(y1, y2, state.wrapY)
+    var xD = measureModularOffset(x1, x2, state.world.wrapCoords.x)
+    var yD = measureModularOffset(y1, y2, state.world.wrapCoords.y)
     // Deal with case x offset = 0
     if (xD === 0) {
       // Will prevent division by zero below
       if (yD < 0) {
-        return 180
+        return 180    // (0, -1) returns 180 degrees
       } else {
-        return 0
+        return 0      // (0, 0) and (0, 1) returns 0 degrees
       }
     }
     // Deal with case x offset < 1
@@ -344,32 +346,35 @@ var playGame = function() {
     // angle = 0 for 'right'
     // angle -> 90 for 'up'
     // angle -> -90 for 'down'
-    return 90 - angle
+    return resultSign * (90 - angle)
   }
 
   var markAsCollided = function(i, j) {
-    // var xi = state.world.masses[i].x
-    // var yi = state.world.masses[i].y
-    // var xj = state.world.masses[j].x
-    // var yj = state.world.masses[j].y
-    // var wrapX = state.wrapX
-    // var wrapY = state.wrapY
-    // var diffX = xj-xi
-    // var diffY = yj-yi
-    // var sign_xi = Math.
-    // var angle =
+    // Calculate collision angle
+    var angle = measureAngleDegrees(
+      state.world.masses[i].x, state.world.masses[i].y,
+      state.world.masses[j].x, state.world.masses[j].y
+    )
+    var massI = state.world.masses[i].mass
+    var massJ = state.world.masses[j].mass
+    var massRatio = massI/(massI+massJ)
     // Mark i as having collided with j
+    // (Direction of the angle is the direction of the force on each element)
     state.world.masses[i].collisionWith.index = j
     state.world.masses[i].collisionWith.mass = state.world.masses[j].mass
     state.world.masses[i].collisionWith.u = state.world.masses[j].u
     state.world.masses[i].collisionWith.v = state.world.masses[j].v
     state.world.masses[i].collisionWith.angVeloc = state.world.masses[j].angVeloc
+    state.world.masses[i].collisionWith.angle = -angle
+    state.world.masses[i].collisionWith.massRatio = massRatio
     // Mark j as having collided with i
     state.world.masses[j].collisionWith.index = i
     state.world.masses[j].collisionWith.mass = state.world.masses[i].mass
     state.world.masses[j].collisionWith.u = state.world.masses[i].u
     state.world.masses[j].collisionWith.v = state.world.masses[i].v
     state.world.masses[j].collisionWith.angVeloc = state.world.masses[i].angVeloc
+    state.world.masses[j].collisionWith.angle = angle
+    state.world.masses[j].collisionWith.massRatio = 1-massRatio
   }
 
   var findCollisionsBetweenMasses = function() {
@@ -418,10 +423,18 @@ var playGame = function() {
     var m2 = mass.collisionWith.mass
     var u2 = mass.collisionWith.u
     var v2 = mass.collisionWith.v
-    var massSum = m1 + m2
-    // Change the variables as appropriate
-    mass.u = (u1 * (m1-m2) + 2*m2*u2 ) / (m1+m2)
-    mass.v = (v1 * (m1-m2) + 2*m2*v2 ) / (m1+m2)
+    var angleDirectlyAway = mass.collisionWith.angle
+    var massSumInv = 1/(m1+m2)
+    var damping = state.constants.collisions.dampingFactor
+    var massRatioOfThis = mass.collisionWith.massRatio
+    var massRatioOfOther = 1-massRatioOfThis
+    var moveAwayPx = state.constants.collisions.moveAwayPx
+    // Change the momentum according to a (damped) elastic collision
+    mass.u = damping * massSumInv * (u1 * (m1-m2) + 2*m2*u2 )
+    mass.v = damping * massSumInv * (v1 * (m1-m2) + 2*m2*v2 )
+    // Move the colliding parties away from each other
+    mass.x += massRatioOfOther * moveAwayPx * Math.sin(degreesToRadians * angleDirectlyAway)
+    mass.y += massRatioOfOther * moveAwayPx * Math.cos(degreesToRadians * angleDirectlyAway)
 
     // If its a bullet, mark it for removal
     if (mass.massType === "bullet") {
@@ -528,7 +541,7 @@ var playGame = function() {
       calcMass += density * area
       maxRadius = Math.max(maxRadius, r2)
     }
-    mass.mass = calcMass  // :)
+    mass.mass = calcMass**1.5  // Pseudo-3D calculation here - turn 2D mass into 3D
     mass.maxRadius = maxRadius;
     mass.physicsStatsInvalid = false
   }
@@ -601,10 +614,11 @@ var playGame = function() {
     newMass.collisionWith = {}
     newMass.collisionWith.index = null
     newMass.collisionWith.mass = 1
-    newMass.collisionWith.angle = 0
     newMass.collisionWith.u = 0
     newMass.collisionWith.v = 0
     newMass.collisionWith.angVeloc = 0
+    newMass.collisionWith.angle = 0
+    newMass.collisionWith.massRatio = 0
     // First element
     var nextAngle = 0
     var nextRadius = minRadius + (maxRadius-minRadius) * Math.random()
@@ -644,12 +658,45 @@ var playGame = function() {
   var setupState = function() {
 
     // Setup main state categories here
+    state.constants = {}
     state.world = {}
     state.player = {}
     state.control = {}
     state.input = {}
     state.output = {}
     state.output.pageElts = {}
+
+    state.constants.collisions = {}
+    state.constants.collisions.dampingFactor = 0.95     // Retain between 0 and 1 of momentum
+    state.constants.collisions.moveAwayPx = 3           // Move each mass slightly further away
+    // state.constants.collisions.lastCollisionTime = 0
+    // state.constants.collisions.timeBeforeNextCollision = 0.1  // Multiple collisions disallowed
+    // // since that leads to objects sticking together!
+
+    // state.rockTypes = []
+    // var fullerene = {
+    //   type: "fullerene",
+    //   density: 0.5,
+    //   rgbInfo: "too complicated"
+    // }
+    // state.rockTypes.push(fullerene)
+    // state.rockTypes.fullerene = {}
+    // state.rockTypes.fullerene.density =
+    // state.rockTypes.fullerene.main = {}
+    //   density: 0.5,
+    // }
+    // state.rockTypes.ammonium = {
+    //   density: 0.5,
+    // }
+    // state.rockTypes.structrite = {
+    //   density: 0.5,
+    // }
+    // state.rockTypes.coinium = {
+    //   density: 0.5,
+    // }
+    // state.rockTypes.neutrite = {
+    //   density: 0.5,
+    // }
 
     // Setup control variables
     state.control.loopCount = 0
@@ -807,10 +854,11 @@ var playGame = function() {
 
     // Player ship related variables
     state.player.ship = playerShip
+    state.player.time = 0
     state.player.fuel = 100
-    state.player.ammo = 23
-    // state.player.health = 100
-    // state.player.money = 0
+    state.player.ammo = 50
+    state.player.health = 100
+    state.player.coin = 0
 
     // Monitor key presses
     state.input.keyboard = {}
@@ -825,8 +873,11 @@ var playGame = function() {
     state.output.context = context
     // state.output.pageElts = {}    // Done earlier
     state.output.pageElts.canvas = canvasElt
+    state.output.pageElts.time = document.querySelector("#time-left")
     state.output.pageElts.fuel = document.querySelector("#fuel-left")
     state.output.pageElts.ammo = document.querySelector("#ammo-left")
+    state.output.pageElts.health = document.querySelector("#health-left")
+    state.output.pageElts.coin = document.querySelector("#coin-found")
     state.output.pageElts.x = document.querySelector("#pos-x")
     state.output.pageElts.y = document.querySelector("#pos-y")
     state.output.pageElts.u = document.querySelector("#vel-u")
