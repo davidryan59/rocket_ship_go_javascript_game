@@ -12,6 +12,14 @@ var playGame = function() {
   var degreesToRadians = Math.PI / 180
   var radiansToDegrees = 1 / degreesToRadians
 
+  var doTestCalculation = function() {
+    // Developer tool
+    // When 'Z' is pressed, run this function
+    // Typical use: log a calculation which is to be tested
+    var calc = measureModularOffset(-100, 110, 10000)
+    console.log(calc)
+  }
+
   var updateMassGameCoords = function(mass) {
     // Get state variables
     var grav = state.world.gravity        // Pixels per second per second
@@ -489,6 +497,10 @@ var playGame = function() {
   var respondReliablyToKeyDowns = function(eventKeyboardCode) {
     // This runs, even if the main loop isn't running!
     // Currently nothing extra to do, on top of what's already control off main loop
+    if (eventKeyboardCode==="KeyZ") {
+      // Use this function to do a developer calculation
+      doTestCalculation()
+    }
   }
 
   var respondToKeyboardDuringMainLoop = function() {
@@ -563,11 +575,6 @@ var playGame = function() {
         recalculatePhysicsStats(mass)
       }
     }
-  }
-
-  var removeMass = function(mass) {
-    // Implement this here
-
   }
 
   var removeDeadMasses = function() {
@@ -865,17 +872,17 @@ var playGame = function() {
     playerShip.angleRadii[4][1]=13
     playerShip.moves = true
     playerShip.affectedByGravity = true
-    playerShip.u = 40
-    playerShip.v = 80
+    playerShip.u = 0
+    playerShip.v = 100
     playerShip.isWall = false
-    playerShip.angVeloc = 15      // Degrees per seconds
+    playerShip.angVeloc = 0
     playerShip.graphics.main.fillStyle = "#44F"
     playerShip.graphics.main.strokeStyle = "#ACF"
     playerShip.graphics.main.lineWidth = 2
     playerShip.graphics.back.isDrawn = false
-    playerShip.graphics.back.fillStyle = "#035"
-    playerShip.graphics.back.strokeStyle = "#555"
-    playerShip.graphics.back.lineWidth = 2
+    // playerShip.graphics.back.fillStyle = "#035"
+    // playerShip.graphics.back.strokeStyle = "#555"
+    // playerShip.graphics.back.lineWidth = 2
 
     // Player ship related variables
     state.player.ship = playerShip
