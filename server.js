@@ -9,9 +9,10 @@ app.get('/', function (req, res) {
 app.use(express.static('public'));
 
 
-var server = app.listen(3000, function () {
+var server = app.listen(3001, function () {
+// var server = app.listen(3000, function () {
   var host = server.address().address;
   var port = server.address().port;
 
-  console.log('Jetman app listening at http://%s:%s', host, port);
+  console.log('Rocket Ship Go! listening at http://%s:%s', host, port);
 });

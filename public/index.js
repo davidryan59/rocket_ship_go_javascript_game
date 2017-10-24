@@ -117,7 +117,7 @@ var playGame = function() {
     for (var mass of state.world.masses) {
       mapCoordsGameToCanvas(mass.gameCoords, mass.canvasMainCoords, 1)
       backZoomOut = mass.graphics.back.zoomOut
-      backZoomOut > 1 ? backZoom = 1/backZoomOut : backZoom = 0.9  // Sensible default
+      backZoomOut > 1 ? backZoom = 1/backZoomOut : backZoom = 1 //0.9  // Sensible default
       mapCoordsGameToCanvas(mass.gameCoords, mass.canvasBackCoords, backZoom)
     }
   }
@@ -180,10 +180,12 @@ var playGame = function() {
     var context = state.output.context
     for (var i in state.world.masses) {
       mass = state.world.masses[i]
-      context.strokeStyle = mass.graphics.back.strokeStyle
-      context.lineWidth = mass.graphics.back.lineWidth
-      context.fillStyle = mass.graphics.back.fillStyle
-      drawLineSet(mass.canvasBackCoords)
+      if (mass.graphics.back.isDrawn) {
+        context.strokeStyle = mass.graphics.back.strokeStyle
+        context.lineWidth = mass.graphics.back.lineWidth
+        context.fillStyle = mass.graphics.back.fillStyle
+        drawLineSet(mass.canvasBackCoords)
+      }
     }
     for (var i in state.world.masses) {
       mass = state.world.masses[i]
@@ -269,11 +271,9 @@ var playGame = function() {
     bullet.u = state.player.ship.u + bulletRelativeSpeed * Math.sin(degreesToRadians * state.player.ship.angle)
     bullet.v = state.player.ship.v + bulletRelativeSpeed * Math.cos(degreesToRadians * state.player.ship.angle)
     bullet.angVeloc = spin
-    bullet.graphics.main = {}
     bullet.graphics.main.fillStyle = "#0F0"
     bullet.graphics.main.strokeStyle = "#FFF"
     bullet.graphics.main.lineWidth = 3
-    bullet.graphics.back = {}
     bullet.graphics.back.zoomOut = 1.03 + 0.05 * Math.random()
     bullet.graphics.back.fillStyle = "#F0F"
     bullet.graphics.back.strokeStyle = "#888"
@@ -301,15 +301,23 @@ var playGame = function() {
   }
 
   var measureModularOffset = function(coord1, coord2, wrapDistance) {
-    var result = coord2 - coord1
-    // If there was no wrapping, leave it here!
-    // However, there is wrapping.
-    // Want to measure distance between -wrapDistance/2 to +wrapDistance/2
-    var halfWrapDistance = wrapDistance/2
-    result += halfWrapDistance
-    result = result % wrapDistance
-    result -= halfWrapDistance
-    return result
+
+    // // 1) Non-modular version
+    // return coord2 - coord1
+
+    // 2) Modular version - USE THIS ONE
+    return (coord2-coord1) % wrapDistance
+    // In JavaScript, 1%3=1, and -1%3=-1 not 2
+    // Hence, we get the smallest absolute value
+    // using the % function.
+
+    // // 3) Modular version where -1%3=2
+    // var halfWrapDistance = wrapDistance/2
+    // result += halfWrapDistance
+    // result = result % wrapDistance
+    // result -= halfWrapDistance
+    // return result
+
   }
 
   var measureDistance = function(x1, y1, x2, y2) {
@@ -357,35 +365,38 @@ var playGame = function() {
     )
     var massI = state.world.masses[i].mass
     var massJ = state.world.masses[j].mass
-    var massRatio = massI/(massI+massJ)
+    var massRatioOfI = massI/(massI+massJ)
+    var massRatioOfJ = 1 - massRatioOfI
     // Mark i as having collided with j
     // (Direction of the angle is the direction of the force on each element)
     state.world.masses[i].collisionWith.index = j
-    state.world.masses[i].collisionWith.mass = state.world.masses[j].mass
+    state.world.masses[i].collisionWith.mass = massJ
     state.world.masses[i].collisionWith.u = state.world.masses[j].u
     state.world.masses[i].collisionWith.v = state.world.masses[j].v
     state.world.masses[i].collisionWith.angVeloc = state.world.masses[j].angVeloc
     state.world.masses[i].collisionWith.angle = -angle
-    state.world.masses[i].collisionWith.massRatio = massRatio
+    state.world.masses[i].collisionWith.massRatio = massRatioOfJ
     // Mark j as having collided with i
     state.world.masses[j].collisionWith.index = i
-    state.world.masses[j].collisionWith.mass = state.world.masses[i].mass
+    state.world.masses[j].collisionWith.mass = massI
     state.world.masses[j].collisionWith.u = state.world.masses[i].u
     state.world.masses[j].collisionWith.v = state.world.masses[i].v
     state.world.masses[j].collisionWith.angVeloc = state.world.masses[i].angVeloc
     state.world.masses[j].collisionWith.angle = angle
-    state.world.masses[j].collisionWith.massRatio = 1-massRatio
+    state.world.masses[j].collisionWith.massRatio = massRatioOfI
   }
 
   var findCollisionsBetweenMasses = function() {
+    // Currently checking almost all pairs of masses
+    // This could be done smarter when there are a lot of masses!
     var xi = 0
     var xj = 0
     var yi = 0
     var yj = 0
     var ri = 0
     var rj = 0
-    var wrapX = state.world.wrapCoords.x
-    var wrapY = state.world.wrapCoords.y
+    var distance = 0
+    var radiusSum = 0
     var countMasses = state.world.masses.length
     for (var i=0; i<countMasses; i++) {
       if (state.world.masses[i].collisionWith.index === null) {
@@ -399,9 +410,9 @@ var playGame = function() {
               xj = state.world.masses[j].x
               yj = state.world.masses[j].y
               rj = state.world.masses[j].maxRadius
-              xDiff = Math.abs(xj-xi) % wrapX
-              yDiff = Math.abs(yj-yi) % wrapY
-              if (xDiff**2 + yDiff**2 < (ri+rj)**2) {
+              distance = measureDistance(xi, yi, xj, yj)
+              radiusSum = ri+rj
+              if (distance < radiusSum) {
                 if (checkIfTrulyCollided(i, j)) {
                   markAsCollided(i, j)
                   break
@@ -426,8 +437,8 @@ var playGame = function() {
     var angleDirectlyAway = mass.collisionWith.angle
     var massSumInv = 1/(m1+m2)
     var damping = state.constants.collisions.dampingFactor
-    var massRatioOfThis = mass.collisionWith.massRatio
-    var massRatioOfOther = 1-massRatioOfThis
+    var massRatioOfOther = mass.collisionWith.massRatio
+    var massRatioOfThis = 1-massRatioOfOther
     var moveAwayPx = state.constants.collisions.moveAwayPx
     // Change the momentum according to a (damped) elastic collision
     mass.u = damping * massSumInv * (u1 * (m1-m2) + 2*m2*u2 )
@@ -572,6 +583,17 @@ var playGame = function() {
     }
   }
 
+  var wrapCoordsOptional = function(){
+    // Use this to map game coordinates to +/- half of the
+    // wrapping distance in each direction.
+    // Doesn't absolutely have to be done, but
+    // its neater to do it.
+
+    // Could, for example, allow coords to be +/- whole wrapping distance,
+    // but map to within half the wrapping distance.
+    // That way the modular arithmetic will still be put to some use!
+  }
+
   var addNewMass = function(x, y, points, maxRadius, minRadius, density) {
     // There is randomisation between minRadius and maxRadius
     // Set these as equal for a deterministic mass (e.g. the ship, or a round bullet)
@@ -590,6 +612,7 @@ var playGame = function() {
     newMass.graphics.main = {}
     newMass.graphics.back = {}
     newMass.graphics.back.zoomOut = 1.1
+    newMass.graphics.back.isDrawn = true
     newMass.graphics.main.fillStyle = "#999"
     newMass.graphics.main.strokeStyle = "#AC9"
     newMass.graphics.main.lineWidth = 3
@@ -787,6 +810,9 @@ var playGame = function() {
     }
     for (var y=yMin+step; y<=yMax-step; y+=step) {
       wallCoordSet.push([xMin, y, Math.random()])
+    }
+    // Leave a gap!
+    for (var y=yMin+step; y<=yMax-3*step; y+=step) {
       wallCoordSet.push([xMax, y, Math.random()])
     }
     wallCoordSet.sort(function(elt2, elt1){
@@ -842,12 +868,11 @@ var playGame = function() {
     playerShip.u = 40
     playerShip.v = 80
     playerShip.isWall = false
-    playerShip.angVeloc = 15      // Degrees per second!
-    playerShip.graphics.main = {}
-    playerShip.graphics.back = {}
+    playerShip.angVeloc = 15      // Degrees per seconds
     playerShip.graphics.main.fillStyle = "#44F"
     playerShip.graphics.main.strokeStyle = "#ACF"
     playerShip.graphics.main.lineWidth = 2
+    playerShip.graphics.back.isDrawn = false
     playerShip.graphics.back.fillStyle = "#035"
     playerShip.graphics.back.strokeStyle = "#555"
     playerShip.graphics.back.lineWidth = 2
@@ -895,13 +920,26 @@ var playGame = function() {
     state.world.stars.sizes = []
     var minSize = 1
     var maxSize = 4
-    state.world.stars.zoomOut = 0.75 * Math.min(
+    var maxZoomOut = Math.min(
       state.world.wrapCoords.x / state.output.canvasDims.size.x,
       state.world.wrapCoords.y / state.output.canvasDims.size.y
     )
-    // Note: this factor of 0.75 (3/4) means that
-    // the most the view can zoom out during gameplay is 4/3
+    // Any more than this and stars need to be displayed in 2 places at once!
+    var maxStarZoomFactor = 0.9
+
+    // BETA - Minimum zoom. Note, this should be still behind all game world objects!
+    var minStarZoomFactor = 0.7
+
+    // Currently - a single zoom for all stars
+    state.world.stars.zoomOut = maxStarZoomFactor * maxZoomOut
+    // Note: this factor of maxStarZoomFactor means that
+    // the most the view can zoom out during gameplay is 1/maxStarZoomFactor
     // otherwise stars start disappearing off the sides!
+
+    // BETA - a zoom array, one entry for each star.
+    // Looking to make the stars move in parallax!
+    state.world.stars.zoomOuts = []
+
     var starX = 0
     var starY = 0
     var starMaxCoordX = state.world.wrapCoords.x
@@ -909,6 +947,7 @@ var playGame = function() {
     var numberOfStars = 1000
     var starColours = ["#FFF", "#999", "#FCC", "#FDB", "#FFA", "#4DF", "#AAF"]
     var colourIndex = 0
+    var starZoomFactor = 0
     for (var i=0; i<numberOfStars; i++) {
       starX = starMaxCoordX * (-0.5+Math.random())
       starY = starMaxCoordY * (-0.5+Math.random())
@@ -917,6 +956,10 @@ var playGame = function() {
       colourIndex = Math.round(starColours.length * Math.random())
       state.world.stars.colours.push(starColours[colourIndex])
       state.world.stars.sizes.push(minSize + (maxSize-minSize)*Math.random()**2)
+
+      // BETA
+      starZoomFactor = minStarZoomFactor + (maxStarZoomFactor-minStarZoomFactor) * Math.random()
+      state.world.stars.zoomOuts.push(starZoomFactor * maxZoomOut)
     }
 
   }
@@ -954,6 +997,7 @@ var playGame = function() {
     drawCanvas()
     updateDisplay()
     removeDeadMasses()
+    wrapCoordsOptional()
     var timeLoopEnd = window.performance.now()
     state.control.timing.msRenderTime = timeLoopEnd - timeLoopStart
 
