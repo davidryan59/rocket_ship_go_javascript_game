@@ -9,9 +9,9 @@ var playGame = function() {
   // Allows persistent properties between browser animation frames,
   // pausing, etc
   var state = {}
-  var state.version = {}
-  var state.version.number = "0.0.0"
-  var state.version.description = "Start versioning"
+  state.version = {}
+  state.version.number = "0.0.0"
+  state.version.description = "Start versioning"
 
   // Shortcuts to common constants here
   var degreesToRadians = Math.PI / 180
@@ -85,20 +85,27 @@ var playGame = function() {
     // Use wrapIndep only if different coordinates should be wrapped independently,
     // e.g. for the stars background.
 
-    var viewMidX = state.output.view.pos.x
-    var viewMidY = state.output.view.pos.y
-    var viewZoom = state.output.view.zoom
-    var overallZoom = viewZoom * extraZoom
+    // extraZoom can be:
+    // 1) A number
+    // 2) An array of numbers, same size as other arrays
+    var useZoomArray = Array.isArray(extraZoom)
 
     var canvasMidX = state.output.canvasDims.centre.x
     var canvasMidY = state.output.canvasDims.centre.y
+    var viewMidX = state.output.view.pos.x
+    var viewMidY = state.output.view.pos.y
+    var viewZoom = state.output.view.zoom
+    var overallZoom = null
 
     // Wrapping coordinates
     // Need the world to have width and height
-    // at least 2 (maybe 3) times as big as the screen
-    // Then the canvas is wrapped around successfully
-    var actualWrapX = state.world.wrapCoords.x * overallZoom
-    var actualWrapY = state.world.wrapCoords.y * overallZoom
+    // bigger than the screen otherwise objects start
+    // disappearing at the side of the screen, and
+    // reappearing on the other side.
+    var wrapX = state.world.wrapCoords.x
+    var wrapY = state.world.wrapCoords.y
+    var actualWrapX = null
+    var actualWrapY = null
     var canvasWrapX = null
     var canvasWrapY = null
 
@@ -109,15 +116,22 @@ var playGame = function() {
     var canvasY = 0
     var canvasCoord = [0, 0]
     for (var i=0; i < gameCoordArray.length; i++) {
+      if (useZoomArray) {
+        overallZoom = viewZoom * extraZoom[i]
+      } else {
+        overallZoom = viewZoom * extraZoom
+      }
+      actualWrapX = wrapX * overallZoom
+      actualWrapY = wrapY * overallZoom
       gameCoord = gameCoordArray[i]
       gameX = gameCoord[0]
       gameY = gameCoord[1]
-      canvasX = canvasMidX + overallZoom*(gameX-viewMidX)    // Game coords start in bottom left, but
-      canvasY = canvasMidY - overallZoom*(gameY-viewMidY)    // Canvas coords start in top left
+      canvasX = canvasMidX + overallZoom * (gameX - viewMidX)    // Game coords start in bottom left, but
+      canvasY = canvasMidY - overallZoom * (gameY - viewMidY)    // Canvas coords start in top left
 
       if (i===0 || wrapIndep===true) {
-        canvasWrapX = Math.round((canvasX-canvasMidX)/actualWrapX)
-        canvasWrapY = Math.round((canvasY-canvasMidY)/actualWrapY)
+        canvasWrapX = Math.round((canvasX - canvasMidX) / actualWrapX)
+        canvasWrapY = Math.round((canvasY - canvasMidY) / actualWrapY)
       }
 
       canvasCoord = [canvasX - actualWrapX * canvasWrapX, canvasY - actualWrapY * canvasWrapY]
@@ -213,10 +227,18 @@ var playGame = function() {
 
   var drawStars = function() {
     var context = state.output.context
+    // // OLD - 2D stars
+    // mapCoordsGameToCanvas(
+    //   state.world.stars.gameCoords,
+    //   state.world.stars.canvasCoords,
+    //   1/state.world.stars.zoomOut,
+    //   true
+    // )
+    // NEW - parallax stars
     mapCoordsGameToCanvas(
       state.world.stars.gameCoords,
       state.world.stars.canvasCoords,
-      1/state.world.stars.zoomOut,
+      state.world.stars.zoomIns,
       true
     )
     // the 'true' on the end does the canvas wrapping independently for each star
@@ -971,10 +993,10 @@ var playGame = function() {
       state.world.wrapCoords.y / state.output.canvasDims.size.y
     )
     // Any more than this and stars need to be displayed in 2 places at once!
-    var maxStarZoomFactor = 0.9
-
-    // BETA - Minimum zoom. Note, this should be still behind all game world objects!
-    var minStarZoomFactor = 0.7
+    // This factor is related to the maximum amount the view can zoom in!
+    var maxStarZoomFactor = 1     // 1 => Assuming view doesn't zoom out at all
+    var minStarZoomFactor = 0.01
+    var maxWeighting = 2
 
     // Currently - a single zoom for all stars
     state.world.stars.zoomOut = maxStarZoomFactor * maxZoomOut
@@ -984,14 +1006,28 @@ var playGame = function() {
 
     // BETA - a zoom array, one entry for each star.
     // Looking to make the stars move in parallax!
-    state.world.stars.zoomOuts = []
+    state.world.stars.zoomIns = []
 
     var starX = 0
     var starY = 0
     var starMaxCoordX = state.world.wrapCoords.x
     var starMaxCoordY = state.world.wrapCoords.y
     var numberOfStars = 1000
-    var starColours = ["#FFF", "#999", "#FCC", "#FDB", "#FFA", "#4DF", "#AAF"]
+    var starColours = [
+      "#F30", "#F80", "#FB0", "#FF0",
+      "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
+      "#3FF", "#0FF", "#0BF", "#08F", "#03F",
+      "#F30", "#F80", "#FB0", "#FF0",
+      "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
+      "#3FF", "#0FF", "#0BF", "#08F", "#03F",
+      "#F30", "#F80", "#FB0", "#FF0",
+      "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
+      "#3FF", "#0FF", "#0BF", "#08F", "#03F",
+      "#F30", "#F80", "#FB0", "#FF0",
+      "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
+      "#3FF", "#0FF", "#0BF", "#08F", "#03F",
+      "#0F0"
+    ]  //"#F00",  , "#00F"
     var colourIndex = 0
     var starZoomFactor = 0
     for (var i=0; i<numberOfStars; i++) {
@@ -1004,8 +1040,9 @@ var playGame = function() {
       state.world.stars.sizes.push(minSize + (maxSize-minSize)*Math.random()**2)
 
       // BETA
-      starZoomFactor = minStarZoomFactor + (maxStarZoomFactor-minStarZoomFactor) * Math.random()
-      state.world.stars.zoomOuts.push(starZoomFactor * maxZoomOut)
+      // Have more background stars than foreground - square random number
+      starZoomFactor = maxStarZoomFactor + (minStarZoomFactor-maxStarZoomFactor) * (Math.random() ** maxWeighting)
+      state.world.stars.zoomIns.push(1 / (starZoomFactor * maxZoomOut))
     }
 
   }
