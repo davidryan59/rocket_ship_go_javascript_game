@@ -1,12 +1,17 @@
 var playGame = function() {
 
-  // Need multiple files!
-  // Something like: var functionFile = require('functions.js') (?)
+  // // Need multiple files!
+  // // Something like: var functionFile = require('functions.js') (?)
+  // // THIS NEEDS WEBPACK
+  // var testFunction = require('./file2.js')
 
   // State variable - all game state is on this object!
   // Allows persistent properties between browser animation frames,
   // pausing, etc
   var state = {}
+  var state.version = {}
+  var state.version.number = "0.0.0"
+  var state.version.description = "Start versioning"
 
   // Shortcuts to common constants here
   var degreesToRadians = Math.PI / 180
@@ -16,8 +21,10 @@ var playGame = function() {
     // Developer tool
     // When 'Z' is pressed, run this function
     // Typical use: log a calculation which is to be tested
-    var calc = measureModularOffset(-100, 110, 10000)
-    console.log(calc)
+
+    // var calc = testFunction()
+    var calc = "NA"
+    console.log("Result", calc)
   }
 
   var updateMassGameCoords = function(mass) {
