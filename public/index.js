@@ -452,15 +452,31 @@ var playGame = function() {
     var m2 = mass.collisionWith.mass
     var u2 = mass.collisionWith.u
     var v2 = mass.collisionWith.v
+    var angleDirectlyAway = mass.collisionWith.angle
+
+
+    // // BETA - there's a bug in current algorithm!
+    // // Need to factor into normal and tangential components
+    // var angleRadians = degreesToRadians * angleDirectlyAway
+    // var cosAng = Math.cos(angleRadians)
+    // var sinAng = Math.sin(angleRadians)
+    //
+    // var vN1 = u1 * cosAng + v1 * sinAng
+    // var vT1 = v1 * cosAng - u1 * sinAng
+    // var vN1 = u1 * cosAng + v1 * sinAng
+    // var vT1 = v1 * cosAng - u1 * sinAng
+
+
     var damping = state.constants.collisions.dampingFactor
     var massSumInv = 1/(m1+m2)
+    var massDiff = m1-m2
     var massRatioOfOther = mass.collisionWith.massRatio
     var moveAwayPx = state.constants.collisions.moveAwayPx
-    var angleDirectlyAway = mass.collisionWith.angle
     // Change the momentum according to a (damped) elastic collision
-    mass.u = damping * massSumInv * (u1 * (m1-m2) + 2*m2*u2 )
-    mass.v = damping * massSumInv * (v1 * (m1-m2) + 2*m2*v2 )
-    // Move the colliding parties away from each other
+    // See: https://en.wikipedia.org/wiki/Elastic_collision
+    mass.u = damping * massSumInv * (u1 * massDiff + 2*m2*u2 )
+    mass.v = damping * massSumInv * (v1 * massDiff + 2*m2*v2 )
+    // Move the colliding parties slightly away from each other
     mass.x += massRatioOfOther * moveAwayPx * Math.sin(degreesToRadians * angleDirectlyAway)
     mass.y += massRatioOfOther * moveAwayPx * Math.cos(degreesToRadians * angleDirectlyAway)
 
