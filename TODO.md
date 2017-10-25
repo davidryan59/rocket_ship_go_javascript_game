@@ -1,14 +1,32 @@
 # TO DO list
 
-- Versioning - start at v0.0.0
-- This might be my final project
+- Pause can be handled better - see the COM dots code!
+
+- Want a separate background order and foreground order
+- E.g. background could be sorted in terms of zoomout ~ mass
+- E.g. foreground could be inverse sorted by mass
+- Periodically re-sort the order of calculation as the masses change!
+- Or if a mass is added/removed
+- Can invalidate the sort orders, to need to recalculate
+- Want to draw the background in order of zoomOut,
+  but foreground in order of addition!
+
+- Periodically, want to
+- - Recalculate zoomOut based on mass
+- - Sort the masses based on zoomOut
+- - Anything light should
+
+Bullets
+
 - Use Week 13 Day 1 Homework folder structure
 - Use Webpack to bundle, so that 'require' works when served
 - Need Express?
 - Add a licence file
 - Read this: https://developer.mozilla.org/en-US/docs/Games/Publishing_games/Game_monetization
 
-- Make stars move in parallax.
+- Make colour of background stroke and fill more faded towards black depending on the zoomOut!
+- Make zoomOut dependent on mass of rock (since its a pseudo-3D thing)
+- Make a maximum zoomOut depending on the window size etc
 
 - Fix the collision angle in the simple elastic model which transfers no friction or angular momentum. Its a reflection in the angle already provided. Probably a sin2theta. A simple matrix transformation of (u, v) should do it.
 
@@ -20,3 +38,5 @@
 
 - Make a method to find radius at a specific angle. Should use a quick search.
 - Make a method to find the collision point(s) and contact angle(s) by going through extreme points
+
+- Put it back on port 3000 after finished course?

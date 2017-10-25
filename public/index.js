@@ -229,6 +229,20 @@ var playGame = function() {
     // context.closePath()
   }
 
+  var drawMassCentresAsPoints = function() {
+    // Draw a dot on the centre of mass for each mass
+    var context = state.output.context
+    var canvasCoords = [[0, 0]]
+    var dotSize = 2
+    for (var i in state.world.masses) {
+      massGameX = state.world.masses[i].x
+      massGameY = state.world.masses[i].y
+      mapCoordsGameToCanvas([[massGameX, massGameY]], canvasCoords, 1)
+      context.fillStyle = "#FFF"
+      context.fillRect(canvasCoords[0][0], canvasCoords[0][1], dotSize, dotSize)
+    }
+  }
+
   var drawMassesOntoCanvas = function() {
     var mass = null
     var context = state.output.context
@@ -248,18 +262,13 @@ var playGame = function() {
       context.fillStyle = mass.graphics.main.fillStyle
       drawLineSet(mass.canvasMainCoords)
     }
+    if (state.output.view.markCentreOfMass) {
+      drawMassCentresAsPoints()
+    }
   }
 
-  var drawStars = function() {
+  var drawStarsOntoCanvas = function() {
     var context = state.output.context
-    // // OLD - 2D stars
-    // mapCoordsGameToCanvas(
-    //   state.world.stars.gameCoords,
-    //   state.world.stars.canvasCoords,
-    //   1/state.world.stars.zoomOut,
-    //   true
-    // )
-    // NEW - parallax stars
     mapCoordsGameToCanvas(
       state.world.stars.gameCoords,
       state.world.stars.canvasCoords,
@@ -282,7 +291,7 @@ var playGame = function() {
     }
   }
 
-  var drawCanvas = function(){
+  var clearCanvas = function(){
     // Set up drawing
     var canvasLeft = state.output.canvasDims.bounds.left
     var canvasRight = state.output.canvasDims.bounds.right
@@ -290,14 +299,18 @@ var playGame = function() {
     var canvasDown = state.output.canvasDims.bounds.down
     var context = state.output.context
     // Do drawing
+    context.clearRect(canvasLeft, canvasUp, canvasRight-canvasLeft, canvasDown-canvasUp)
     // context.fillStyle="black";
     // context.fillRect(canvasLeft, canvasUp, canvasRight-canvasLeft, canvasDown-canvasUp)
-    context.clearRect(canvasLeft, canvasUp, canvasRight-canvasLeft, canvasDown-canvasUp)
-    drawStars()
+  }
+
+  var drawCanvas = function(){
+    clearCanvas()
+    drawStarsOntoCanvas()
     drawMassesOntoCanvas()
   }
 
-  var updateDisplay = function(){
+  var updateTextInHtml = function(){
     if (state.control.loopCount % 7 === 0) {
       state.output.pageElts.time.innerText = Math.round(state.player.time)
       state.output.pageElts.fuel.innerText = Math.round(state.player.fuel)
@@ -571,15 +584,23 @@ var playGame = function() {
         window.requestAnimationFrame(mainLoop)
       }
     }
+    if (eventKeyboardCode==="KeyZ") {
+      // Use this function to do a developer calculation
+      doTestCalculation()
+    }
+    if (eventKeyboardCode==="KeyX") {
+      // Turn COM dots off/on
+      if (state.output.view.markCentreOfMass) {
+        state.output.view.markCentreOfMass = false
+      } else {
+        state.output.view.markCentreOfMass = true
+      }
+    }
   }
 
   var respondReliablyToKeyDowns = function(eventKeyboardCode) {
     // This runs, even if the main loop isn't running!
     // Currently nothing extra to do, on top of what's already control off main loop
-    if (eventKeyboardCode==="KeyZ") {
-      // Use this function to do a developer calculation
-      doTestCalculation()
-    }
   }
 
   var respondToKeyboardDuringMainLoop = function() {
@@ -869,6 +890,7 @@ var playGame = function() {
 
     state.output.view = {}
     state.output.view.zoom = 1
+    state.output.view.markCentreOfMass = true
     state.output.view.pos = {}
     state.output.view.pos.x = state.output.canvasDims.centre.x
     state.output.view.pos.y = state.output.canvasDims.centre.y
@@ -983,12 +1005,14 @@ var playGame = function() {
 
     // Monitor key presses
     state.input.keyboard = {}
-    state.input.keyboard.ArrowLeft = false
-    state.input.keyboard.ArrowRight = false
-    state.input.keyboard.ArrowUp = false
-    state.input.keyboard.Space = false
-    state.input.keyboard.KeyP = false
-    state.input.keyboard.KeyQ = false    // Currently used as an extra pause button
+    state.input.keyboard.ArrowLeft = false      // Rotate left
+    state.input.keyboard.ArrowRight = false     // Rotate right
+    state.input.keyboard.ArrowUp = false        // Thrust
+    state.input.keyboard.Space = false          // Fire bullet
+    state.input.keyboard.KeyP = false           // Pause
+    state.input.keyboard.KeyQ = false           // Also pause
+    state.input.keyboard.KeyZ = false           // Run dev script (keyup)
+    state.input.keyboard.KeyX = false           // Turn off/on COM dots
 
     // Setup output links to HTML webpage
     state.output.context = context
@@ -1042,20 +1066,17 @@ var playGame = function() {
     var starMaxCoordY = state.world.wrapCoords.y
     var numberOfStars = 1000
     var starColours = [
-      "#F30", "#F80", "#FB0", "#FF0",
+      "#F80", "#FB0", "#FF0",
       "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
-      "#3FF", "#0FF", "#0BF", "#08F", "#03F",
-      "#F30", "#F80", "#FB0", "#FF0",
+      "#3FF", "#0FF", "#0BF", "#08F",
+      "#F80", "#FB0", "#FF0",
       "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
-      "#3FF", "#0FF", "#0BF", "#08F", "#03F",
-      "#F30", "#F80", "#FB0", "#FF0",
+      "#3FF", "#0FF", "#0BF", "#08F",
+      "#F80", "#FB0", "#FF0",
       "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
-      "#3FF", "#0FF", "#0BF", "#08F", "#03F", "#FFF",
-      "#F30", "#F80", "#FB0", "#FF0",
-      "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
-      "#3FF", "#0FF", "#0BF", "#08F", "#03F", "#FFF",
-      "#0F0"
-    ]  //"#F00",  , "#00F"
+      "#3FF", "#0FF", "#0BF", "#08F",
+      "#FFF", "#F0F", "#0F0", "#F00", "#00F"
+    ]
     var colourIndex = 0
     var starZoomFactor = 0
     for (var i=0; i<numberOfStars; i++) {
@@ -1106,7 +1127,7 @@ var playGame = function() {
     dealWithCollisions()
 
     drawCanvas()
-    updateDisplay()
+    updateTextInHtml()
     removeDeadMasses()
     wrapCoordsOptional()
     var timeLoopEnd = window.performance.now()
