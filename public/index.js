@@ -167,19 +167,44 @@ var playGame = function() {
   }
 
   var updateViewCoords = function() {
-    var prevX = state.output.view.pos.x    // Pixels
-    var prevY = state.output.view.pos.y    // Pixels
+    // var prevX = state.output.view.pos.x    // Pixels
+    // var prevY = state.output.view.pos.y    // Pixels
     var followX = state.player.ship.x
     var followY = state.player.ship.y
-    var dX = followX-prevX
-    var dY = followY-prevY
-    var d2 = state.player.ship.u**2 + state.player.ship.v**2
+    var followU = state.player.ship.u
+    var followV = state.player.ship.v
+    // Two constants controlling how swiftly view responds to velocity
+    var velConst = state.constants.view.velFactor
+    var radiusConst = state.constants.view.radiusFactor
+    // Get a magnitude and angle from velocity
+    // which will determine how view relates to ship
+    var shipVelMagSq = followU ** 2 + followV ** 2      // Leave this squared so low speeds not much happens
+    var shipVelAng = radiansToDegrees * Math.atan(followU/followV)
+    if (followV<0) {
+      shipVelAng += 180
+    }
+    // Use the atan function
+    // Smooth movement around the ship
+    var viewMoveDistance = radiusConst * 0.6366 * Math.atan(velConst * shipVelMagSq)
+    // Factor of 0.6366 is 1/arctan(Inf)
+
+    // var dX = followX-prevX
+    // var dY = followY-prevY
+    // var d2 = state.player.ship.u**2 + state.player.ship.v**2
     // Sometimes view can stay behind the player ship so far
     // it is off the screen! Fix this.
-    state.output.view.pos.x = prevX + 0.2 * dX
-    state.output.view.pos.y = prevY + 0.2 * dY
+    state.output.view.pos.x = followX + viewMoveDistance * (
+      Math.sin(degreesToRadians * shipVelAng)
+    )
+    state.output.view.pos.y = followY + viewMoveDistance * (
+      Math.cos(degreesToRadians * shipVelAng)
+    )
+    // state.output.view.pos.y = followY + radiusConst * followV
     // When the player ship stops momentarily, the screen zooms in and out
     // very fast. Fix this.
+    // Note - changing the zoom will make stars go off
+    // the side of the screen, if the constants aren't
+    // calibrated... more work needed here.
     state.output.view.zoom = 1  //0.92+0.08/(1+0.0001*d2)
   }
 
@@ -756,6 +781,9 @@ var playGame = function() {
     // state.constants.collisions.lastCollisionTime = 0
     // state.constants.collisions.timeBeforeNextCollision = 0.1  // Multiple collisions disallowed
     // // since that leads to objects sticking together!
+    state.constants.view = {}
+    state.constants.view.velFactor = 10 ** -6.2
+    state.constants.view.radiusFactor = 300
 
     // state.rockTypes = []
     // var fullerene = {
@@ -800,8 +828,8 @@ var playGame = function() {
     // since they will not display correctly, they will visibly flicker
     // from left/right or top/down.
     state.world.wrapCoords = {}
-    state.world.wrapCoords.x = 5000
-    state.world.wrapCoords.y = 3000
+    state.world.wrapCoords.x = 6000
+    state.world.wrapCoords.y = 4000
     // Currently (2017_10_22) the screen is fixed at 1200x675 px (16:9 aspect ratio)
     // Each of the dimensions for wrapCoords here needs to be
     // significantly bigger than the screen dimension.
@@ -933,8 +961,8 @@ var playGame = function() {
     playerShip.angleRadii[4][1]=13
     playerShip.moves = true
     playerShip.affectedByGravity = true
-    playerShip.u = 0
-    playerShip.v = 100
+    playerShip.u = -40 + 80 * Math.random()
+    playerShip.v = 50 + 50 * Math.random()
     playerShip.isWall = false
     playerShip.angVeloc = 0
     playerShip.graphics.main.fillStyle = "#44F"
@@ -995,7 +1023,7 @@ var playGame = function() {
     // Any more than this and stars need to be displayed in 2 places at once!
     // This factor is related to the maximum amount the view can zoom in!
     var maxStarZoomFactor = 1     // 1 => Assuming view doesn't zoom out at all
-    var minStarZoomFactor = 0.01
+    var minStarZoomFactor = 0.0001
     var maxWeighting = 2
 
     // Currently - a single zoom for all stars
@@ -1022,10 +1050,10 @@ var playGame = function() {
       "#3FF", "#0FF", "#0BF", "#08F", "#03F",
       "#F30", "#F80", "#FB0", "#FF0",
       "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
-      "#3FF", "#0FF", "#0BF", "#08F", "#03F",
+      "#3FF", "#0FF", "#0BF", "#08F", "#03F", "#FFF",
       "#F30", "#F80", "#FB0", "#FF0",
       "#FF3", "#FF8", "#FFB", "#BFF", "#8FF",
-      "#3FF", "#0FF", "#0BF", "#08F", "#03F",
+      "#3FF", "#0FF", "#0BF", "#08F", "#03F", "#FFF",
       "#0F0"
     ]  //"#F00",  , "#00F"
     var colourIndex = 0
