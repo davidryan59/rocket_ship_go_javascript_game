@@ -23,7 +23,9 @@ var playGame = function() {
     // Typical use: log a calculation which is to be tested
 
     // var calc = testFunction()
-    var calc = "NA"
+    console.log("This (outer)", this)
+    var elasticCollision = require('./models/elastic_collision')
+    var calc = elasticCollision(state)
     console.log("Result", calc)
   }
 
@@ -521,6 +523,10 @@ var playGame = function() {
     var v2 = mass.collisionWith.v
     var angleDirectlyAway = mass.collisionWith.angle
 
+    // Calculation (2017_10_25) showed that
+    // (u) map to cos2A * u - sin2A * v
+    // (v)       -sin2A * u - cos2A * v
+    // However, that's when centre of mass is stationary
 
     // // BETA - there's a bug in current algorithm!
     // // Need to factor into normal and tangential components

@@ -65,7 +65,7 @@
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
 var playGame = function() {
 
@@ -92,7 +92,9 @@ var playGame = function() {
     // Typical use: log a calculation which is to be tested
 
     // var calc = testFunction()
-    var calc = "NA"
+    console.log("This (outer)", this)
+    var elasticCollision = __webpack_require__(1)
+    var calc = elasticCollision(state)
     console.log("Result", calc)
   }
 
@@ -590,6 +592,10 @@ var playGame = function() {
     var v2 = mass.collisionWith.v
     var angleDirectlyAway = mass.collisionWith.angle
 
+    // Calculation (2017_10_25) showed that
+    // (u) map to cos2A * u - sin2A * v
+    // (v)       -sin2A * u - cos2A * v
+    // However, that's when centre of mass is stationary
 
     // // BETA - there's a bug in current algorithm!
     // // Need to factor into normal and tangential components
@@ -1235,6 +1241,19 @@ var playGame = function() {
 }
 
 window.addEventListener('load', playGame)
+
+
+/***/ }),
+/* 1 */
+/***/ (function(module, exports) {
+
+var elasticCollision = function(state) {
+  console.log("This (inner)", this);
+  console.log("State", state);
+  return 1
+}
+
+module.exports = elasticCollision
 
 
 /***/ })
