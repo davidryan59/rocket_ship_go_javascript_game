@@ -1,6 +1,7 @@
 # TO DO list
 
-- Pause can be handled better - see the COM dots code!
+- Make a test function to replace masses by circles. Put it on a separate key.
+  (Do this while collision detection algorithm still not perfect.)
 
 - Want a separate background order and foreground order
 - E.g. background could be sorted in terms of zoomout ~ mass

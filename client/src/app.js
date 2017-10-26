@@ -497,7 +497,52 @@ var playGame = function() {
               radiusSum = ri+rj
               if (distance < radiusSum) {
                 if (checkIfTrulyCollided(i, j)) {
-                  markAsCollided(i, j)
+                  // markAsCollided(i, j)
+
+                  // DEBUG - Does this work?
+                  // (Yes! Its been tested, it works)
+                  // console.log("Collision between masses", i, "and", j)
+
+                  // Mark both as collided
+                  // (This could be changed to a simple true/false)
+                  state.world.masses[i].collisionWith.index = j
+                  state.world.masses[j].collisionWith.index = i
+                  // Get info for the collision calculation
+                  var m1 = state.world.masses[i].mass
+                  var m2 = state.world.masses[j].mass
+                  var massSum = m1+m2
+                  var movementRatio1 = m2/massSum
+                  var movementRatio2 = m1/massSum
+                  var angleM1M2 = measureAngleDegrees(xi, yi, xj, yj)
+                  var cos = Math.cos(degreesToRadians * angleM1M2)
+                  var sin = Math.sin(degreesToRadians * angleM1M2)
+                  var repelPx = state.constants.collisions.repelPx
+                  // Feed relevant info into calculation
+                  newVelocityArray = elasticCentredCollision (
+                    angleM1M2,
+                    m1,
+                    state.world.masses[i].u,
+                    state.world.masses[i].v,
+                    m2,
+                    state.world.masses[j].u,
+                    state.world.masses[j].v,
+                    state.constants.collisions.dampingFactor
+                  )
+                  // Put the amended velocity components back
+                  state.world.masses[i].u = newVelocityArray[0]
+                  state.world.masses[i].v = newVelocityArray[1]
+                  state.world.masses[j].u = newVelocityArray[2]
+                  state.world.masses[j].v = newVelocityArray[3]
+                  // Move the masses a small distance apart
+                  state.world.masses[i].x -= movementRatio1 * repelPx * sin
+                  state.world.masses[i].y -= movementRatio1 * repelPx * cos
+                  state.world.masses[j].x += movementRatio2 * repelPx * sin
+                  state.world.masses[j].y += movementRatio2 * repelPx * sin
+
+
+
+
+
                   break
                 }
               }
@@ -505,9 +550,13 @@ var playGame = function() {
           }
         }
       }
+      // Finished dealing with mass i
+      // Can reset its marker now
+      state.world.masses[i].collisionWith.index = null
     }
   }
 
+  // IS THIS NEEDED ANY MORE?
   var dealWithCollision = function(mass) {
     // Angular velocity currently not changed
     // Here are the relevant variables for elastic collisions
@@ -522,7 +571,7 @@ var playGame = function() {
     // Some setup
     var damping = state.constants.collisions.dampingFactor
     var massRatioOfOther = mass.collisionWith.massRatio
-    var moveAwayPx = state.constants.collisions.moveAwayPx
+    var repelPx = state.constants.collisions.repelPx
 
     // Function elasticCentredCollision to find new (u, v)
     var newVelocArray = elasticCentredCollision(angleM1M2, m1, u1, v1, m2, u2, v2)
@@ -542,8 +591,8 @@ var playGame = function() {
     // mass.v = damping * massSumInv * (v1 * massDiff + 2*m2*v2 )
 
     // // Move the colliding parties slightly away from each other
-    mass.x += massRatioOfOther * moveAwayPx * Math.sin(degreesToRadians * angleDirectlyAway)
-    mass.y += massRatioOfOther * moveAwayPx * Math.cos(degreesToRadians * angleDirectlyAway)
+    mass.x += massRatioOfOther * repelPx * Math.sin(degreesToRadians * angleDirectlyAway)
+    mass.y += massRatioOfOther * repelPx * Math.cos(degreesToRadians * angleDirectlyAway)
 
     // If its a bullet, mark it for removal
     if (mass.massType === "bullet") {
@@ -557,6 +606,7 @@ var playGame = function() {
     // but that's less important.
   }
 
+  // IS THIS NEEDED ANY MORE?
   var dealWithCollisions = function() {
     for (var mass of state.world.masses) {
       if (mass.collisionWith.index !== null) {
@@ -794,8 +844,8 @@ var playGame = function() {
     state.output.pageElts = {}
 
     state.constants.collisions = {}
-    state.constants.collisions.dampingFactor = 0.95     // Retain between 0 and 1 of momentum
-    state.constants.collisions.moveAwayPx = 3           // Move each mass slightly further away
+    state.constants.collisions.dampingFactor = 0.98     // Retain between 0 and 1 of momentum
+    state.constants.collisions.repelPx = 5              // Move each mass slightly further away
     // state.constants.collisions.lastCollisionTime = 0
     // state.constants.collisions.timeBeforeNextCollision = 0.1  // Multiple collisions disallowed
     // // since that leads to objects sticking together!
@@ -943,7 +993,7 @@ var playGame = function() {
       theMass.graphics.back.zoomOut = 1.05 + 0.5*(1-wallCoordSet[i][2]**0.5)
       theMass.moves = true
 
-      // // DEBUG
+      // // DEBUG - single large mass below start point
       // theMass.toBeRemoved = true
 
     }
@@ -976,7 +1026,7 @@ var playGame = function() {
       state.world.masses[i].graphics.back.strokeStyle = "#779977"
     }
 
-    // // DEBUG
+    // // DEBUG - single large mass below start point
     // addNewMass(state.output.canvasDims.centre.x, state.output.canvasDims.centre.y - 800, 10, 600, 550, 10)
 
     // Make the game player
@@ -1136,7 +1186,7 @@ var playGame = function() {
     // // Dealing with collisions - more work needed here!
     // // Can comment these two in and out to turn collision detection on/off
     findCollisionsBetweenMasses()
-    dealWithCollisions()
+    // dealWithCollisions()
 
     drawCanvas()
     updateTextInHtml()

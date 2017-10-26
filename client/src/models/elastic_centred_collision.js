@@ -1,4 +1,4 @@
-var elasticCentredCollision = function(angleM1M2, m1, u1, v1, m2, u2, v2) {
+var elasticCentredCollision = function(angleM1M2, m1, u1, v1, m2, u2, v2, damping) {
   // The collision angle is between Up and Mass1->Mass2, in a clockwise direction
 
   // There are two masses, mass 1 and mass 2
@@ -33,17 +33,16 @@ var elasticCentredCollision = function(angleM1M2, m1, u1, v1, m2, u2, v2) {
   // Do X -> -X for each of these, for mass 1
 
   // Mass 2 new coords (B)
-  var u2ii = 0 - cos * u2i + sin * v2i
-  var v2ii = 0 + sin * u2i + cos * v2i
+  var u2ii = 0 + cos * u2i - sin * v2i
+  var v2ii = 0 - sin * u2i - cos * v2i
   // Mass 1 new coords (B)
   var u1ii = 0 + cos * u1i - sin * v1i
   var v1ii = 0 - sin * u1i - cos * v1i
-
   // Final coords need to add back in uConst, vConst
-  var u1iii = u1ii + uConst
-  var v1iii = v1ii + vConst
-  var u2iii = u2ii + uConst
-  var v2iii = v2ii + vConst
+  var u1iii = damping * u1ii + uConst
+  var v1iii = damping * v1ii + vConst
+  var u2iii = damping * u2ii + uConst
+  var v2iii = damping * v2ii + vConst
 
   // These are ready to be returned
   return [u1iii, v1iii, u2iii, v2iii]
