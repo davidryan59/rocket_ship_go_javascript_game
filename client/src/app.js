@@ -521,23 +521,27 @@ var playGame = function() {
 
     // Some setup
     var damping = state.constants.collisions.dampingFactor
-    var massSumInv = 1/(m1+m2)
-    var massDiff = m1-m2
     var massRatioOfOther = mass.collisionWith.massRatio
     var moveAwayPx = state.constants.collisions.moveAwayPx
 
     // Function elasticCentredCollision to find new (u, v)
-    // var newVelocArray = elasticCentredCollision(angleM1M2, m1, u1, v1, m2, u2, v2)
+    var newVelocArray = elasticCentredCollision(angleM1M2, m1, u1, v1, m2, u2, v2)
+    // Output of form of new [u1, v1, u2, v2]
 
     // NEW METHOD
+    mass.u = damping * newVelocArray[0]
+    mass.v = damping * newVelocArray[1]
 
-    // OLD METHOD
-    // Change the momentum according to a (damped) elastic collision
-    // See: https://en.wikipedia.org/wiki/Elastic_collision
+    // // OLD METHOD
+    // var massSumInv = 1/(m1+m2)
+    // var massDiff = m1-m2
+    // // Change the momentum according to a (damped) elastic collision
+    // // See: https://en.wikipedia.org/wiki/Elastic_collision
     var angleDirectlyAway = -angleM1M2
-    mass.u = damping * massSumInv * (u1 * massDiff + 2*m2*u2 )
-    mass.v = damping * massSumInv * (v1 * massDiff + 2*m2*v2 )
-    // Move the colliding parties slightly away from each other
+    // mass.u = damping * massSumInv * (u1 * massDiff + 2*m2*u2 )
+    // mass.v = damping * massSumInv * (v1 * massDiff + 2*m2*v2 )
+
+    // // Move the colliding parties slightly away from each other
     mass.x += massRatioOfOther * moveAwayPx * Math.sin(degreesToRadians * angleDirectlyAway)
     mass.y += massRatioOfOther * moveAwayPx * Math.cos(degreesToRadians * angleDirectlyAway)
 
