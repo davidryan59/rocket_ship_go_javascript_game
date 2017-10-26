@@ -1,3 +1,5 @@
+var elasticCentredCollision = require('./models/elastic_centred_collision')
+
 var playGame = function() {
 
   // State variable - all game state is on this object!
@@ -19,8 +21,7 @@ var playGame = function() {
 
     // var calc = testFunction()
     console.log("This (outer)", this)
-    var elasticCollision = require('./models/elastic_collision')
-    var calc = elasticCollision(state)
+    var calc = elasticCentredCollision(1)
     console.log("Result", calc)
   }
 
@@ -516,32 +517,24 @@ var playGame = function() {
     var m2 = mass.collisionWith.mass
     var u2 = mass.collisionWith.u
     var v2 = mass.collisionWith.v
-    var angleDirectlyAway = mass.collisionWith.angle
+    var angleM1M2 = -mass.collisionWith.angle
 
-    // Calculation (2017_10_25) showed that
-    // (u) map to cos2A * u - sin2A * v
-    // (v)       -sin2A * u - cos2A * v
-    // However, that's when centre of mass is stationary
-
-    // // BETA - there's a bug in current algorithm!
-    // // Need to factor into normal and tangential components
-    // var angleRadians = degreesToRadians * angleDirectlyAway
-    // var cosAng = Math.cos(angleRadians)
-    // var sinAng = Math.sin(angleRadians)
-    //
-    // var vN1 = u1 * cosAng + v1 * sinAng
-    // var vT1 = v1 * cosAng - u1 * sinAng
-    // var vN1 = u1 * cosAng + v1 * sinAng
-    // var vT1 = v1 * cosAng - u1 * sinAng
-
-
+    // Some setup
     var damping = state.constants.collisions.dampingFactor
     var massSumInv = 1/(m1+m2)
     var massDiff = m1-m2
     var massRatioOfOther = mass.collisionWith.massRatio
     var moveAwayPx = state.constants.collisions.moveAwayPx
+
+    // Function elasticCentredCollision to find new (u, v)
+    // var newVelocArray = elasticCentredCollision(angleM1M2, m1, u1, v1, m2, u2, v2)
+
+    // NEW METHOD
+
+    // OLD METHOD
     // Change the momentum according to a (damped) elastic collision
     // See: https://en.wikipedia.org/wiki/Elastic_collision
+    var angleDirectlyAway = -angleM1M2
     mass.u = damping * massSumInv * (u1 * massDiff + 2*m2*u2 )
     mass.v = damping * massSumInv * (v1 * massDiff + 2*m2*v2 )
     // Move the colliding parties slightly away from each other
@@ -788,7 +781,8 @@ var playGame = function() {
 
     // Setup main state categories here
     state.constants = {}
-    state.world = {}
+    // state.world = {}
+    state.worlds = {}      // World will point to one of the worlds!
     state.player = {}
     state.control = {}
     state.input = {}
@@ -840,6 +834,15 @@ var playGame = function() {
     state.control.timing.thisLoopStart = window.performance.now()
     state.control.timing.msBetweenLoops = 10
     state.control.timing.msRenderTime = 10
+
+    // Setup worlds hash
+    var world1Name = "emptyWorld"
+    state.worlds[world1Name] = {}
+    var world2Name = "testWorld"
+    state.worlds[world2Name] = {}
+    state.control.currentWorldName = world2Name
+    // Point the (current) world to the world stated in control
+    state.world = state.worlds[state.control.currentWorldName]
 
     // Setup world maximum dimensions
     // If things are bigger, they get wrapped around (modular arithmetic!)
@@ -993,8 +996,15 @@ var playGame = function() {
     // playerShip.graphics.back.strokeStyle = "#555"
     // playerShip.graphics.back.lineWidth = 2
 
-    // Player ship related variables
-    state.player.ship = playerShip
+    // The world needs to know which of its masses is the player ship
+    state.world.playerShip = playerShip
+
+    // The player needs to know which of the masses
+    // (IN THE CURRENT WORLD!)
+    // is the player ship
+    state.player.ship = state.world.playerShip
+
+    // Other player ship related variables
     state.player.time = 0
     state.player.fuel = 100
     state.player.ammo = 50
