@@ -222,7 +222,7 @@ var playGame = function() {
     var thisLoopStart = tFrame
     if (state.control.pausing.timingNeedsResetting) {
       // Reset the prevLoopStart since its going to be a long time ago!
-      prevLoopStart = thisLoopStart - 16        // Deduct a single frame
+      prevLoopStart = thisLoopStart - 8        // Between 0 and 16. 8 smooth.
       state.control.pausing.timingNeedsResetting = false
     }
     var msBetweenLoops = thisLoopStart-prevLoopStart
@@ -903,7 +903,6 @@ var playGame = function() {
     state.control.loopCount = 0
     state.control.pausing = {}
     state.control.pausing.isPaused = false
-    state.control.pausing.waitingForPauseKeyup = false
     state.control.pausing.timingNeedsResetting = false
     state.control.timing = {}
     state.control.timing.prevLoopStart = window.performance.now()    // dummy data
