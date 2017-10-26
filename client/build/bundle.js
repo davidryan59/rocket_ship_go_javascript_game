@@ -86,7 +86,7 @@ var playGame = function() {
   var degreesToRadians = Math.PI / 180
   var radiansToDegrees = 1 / degreesToRadians
 
-  var doTestCalculation = function() {
+  var developerTestFunction = function() {
     // Developer tool
     // When 'Z' is pressed, run this function
     // Typical use: log a calculation which is to be tested
@@ -225,10 +225,10 @@ var playGame = function() {
   var doTiming = function(tFrame) {
     var prevLoopStart = state.control.timing.thisLoopStart
     var thisLoopStart = tFrame
-    if (state.control.pausing.comingOffPause) {
+    if (state.control.pausing.timingNeedsResetting) {
       // Reset the prevLoopStart since its going to be a long time ago!
       prevLoopStart = thisLoopStart - 16        // Deduct a single frame
-      state.control.pausing.comingOffPause = false
+      state.control.pausing.timingNeedsResetting = false
     }
     var msBetweenLoops = thisLoopStart-prevLoopStart
     state.control.timing.prevLoopStart = prevLoopStart
@@ -644,26 +644,28 @@ var playGame = function() {
 
   var respondReliablyToKeyUps = function(eventKeyboardCode) {
     // This runs in background, even if the main loop isn't running!
-    if ( eventKeyboardCode === "KeyQ" ) {
-      // Do P things on Q
-      eventKeyboardCode = "KeyP"  // Extra pause button
-    }
-    if ( state.control.pausing.isPaused && eventKeyboardCode === "KeyP" ) {
-      // Do pause handling on keyups, not keydowns!
-      if (state.control.pausing.waitingForPauseKeyup) {
-        state.control.pausing.waitingForPauseKeyup = false
-      } else {
+    if ( eventKeyboardCode === "KeyP" || eventKeyboardCode === "KeyQ" ) {
+      // P is pause button. Q is extra pause button, easier positioning
+      // Done on key-up, since keydown was more complicated and unreliable
+      if (state.control.pausing.isPaused) {
         // Restart main loop!
         state.control.pausing.isPaused = false
-        state.control.pausing.comingOffPause = true
+        state.control.pausing.timingNeedsResetting = true
         window.requestAnimationFrame(mainLoop)
+      } else {
+        state.control.pausing.isPaused = true
+        // This will stop the next animation frame
       }
     }
     if (eventKeyboardCode==="KeyZ") {
-      // Use this function to do a developer calculation
-      doTestCalculation()
+      // Developer function
+      // Run a test function from within the game
+      // This function can be switched to do whatever you want to measure.
+      // Typically, console log the output of another function to test
+      developerTestFunction()
     }
     if (eventKeyboardCode==="KeyX") {
+      // Developer function
       // Turn COM dots off/on
       if (state.output.view.markCentreOfMass) {
         state.output.view.markCentreOfMass = false
@@ -675,7 +677,8 @@ var playGame = function() {
 
   var respondReliablyToKeyDowns = function(eventKeyboardCode) {
     // This runs, even if the main loop isn't running!
-    // Currently nothing extra to do, on top of what's already control off main loop
+    // Currently nothing extra to do,
+    // on top of what's already controlled by main loop
   }
 
   var respondToKeyboardDuringMainLoop = function() {
@@ -711,11 +714,6 @@ var playGame = function() {
         // One bullet per SPACE press
         // Deal with auto-repeat keydowns in future
       }
-    }
-    // Pause game
-    if (!state.control.pausing.isPaused && (state.input.keyboard.KeyP || state.input.keyboard.KeyQ)) {
-      state.control.pausing.isPaused = true
-      state.control.pausing.waitingForPauseKeyup = true
     }
   }
 
@@ -911,7 +909,7 @@ var playGame = function() {
     state.control.pausing = {}
     state.control.pausing.isPaused = false
     state.control.pausing.waitingForPauseKeyup = false
-    state.control.pausing.comingOffPause = false
+    state.control.pausing.timingNeedsResetting = false
     state.control.timing = {}
     state.control.timing.prevLoopStart = window.performance.now()    // dummy data
     state.control.timing.thisLoopStart = window.performance.now()
