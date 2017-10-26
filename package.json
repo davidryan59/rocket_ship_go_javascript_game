@@ -1,12 +1,12 @@
 {
-  "name": "canvas_start_point",
+  "name": "rocket_ship_go",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "mocha client/src/models/specs",
-    "start": "nodemon server/server.js",
-    "build": "cd client && webpack -w"
+    "test": "mocha ./client/src/models/specs",
+    "start": "nodemon ./server/server.js",
+    "build": "cd ./client && webpack -w"
   },
   "author": "",
   "license": "ISC",

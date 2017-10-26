@@ -1,17 +1,12 @@
 var playGame = function() {
 
-  // // Need multiple files!
-  // // Something like: var functionFile = require('functions.js') (?)
-  // // THIS NEEDS WEBPACK
-  // var testFunction = require('./file2.js')
-
   // State variable - all game state is on this object!
   // Allows persistent properties between browser animation frames,
-  // pausing, etc
+  // pausing, etc.
   var state = {}
   state.version = {}
-  state.version.number = "0.0.0"
-  state.version.description = "Start versioning"
+  state.version.number = "0.0.1"
+  state.version.description = "Webpack use started"
 
   // Shortcuts to common constants here
   var degreesToRadians = Math.PI / 180
