@@ -1,14 +1,18 @@
 {
   "name": "rocket_ship_go",
   "version": "1.0.0",
-  "description": "",
+  "description": "Making a Solar Jetman (NES) style game in a web browser",
   "main": "server.js",
   "scripts": {
     "test": "mocha ./client/src/models/specs",
     "start": "nodemon ./server/server.js",
     "build": "cd ./client && webpack -w"
   },
-  "author": "",
+  "author": {
+    "name": "David Ryan",
+    "email": "davidryan1998@hotmail.com",
+    "url": "https://github.com/daveryan23"
+  },
   "license": "ISC",
   "dependencies": {
     "express": "^4.16.2",
