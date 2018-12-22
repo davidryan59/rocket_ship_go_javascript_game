@@ -425,52 +425,11 @@ var playGame = function() {
     return true
   }
 
-  var markAsCollided = function(i, j) {
-    // Calculate collision angle
-    var angle = measureAngleDegrees(
-      state.world.masses[i].x, state.world.masses[i].y,
-      state.world.masses[j].x, state.world.masses[j].y
-    )
-
-    // // DEBUG
-    // var offsetXR = Math.round(measureModularOffset(
-    //   state.world.masses[i].x, state.world.masses[j].x, state.world.wrapCoords.x
-    // ))
-    // var offsetYR = Math.round(measureModularOffset(
-    //   state.world.masses[i].y, state.world.masses[j].y, state.world.wrapCoords.y
-    // ))
-    // var distanceR = Math.round(measureDistance(
-    //   state.world.masses[i].x, state.world.masses[i].y,
-    //   state.world.masses[j].x, state.world.masses[j].y
-    // ))
-    // console.log("Collision: offset", offsetXR, offsetYR, ", distance", distanceR, ", angle", Math.round(angle))
-
-    var massI = state.world.masses[i].mass
-    var massJ = state.world.masses[j].mass
-    var massRatioOfI = massI/(massI+massJ)
-    var massRatioOfJ = 1 - massRatioOfI
-    // Mark i as having collided with j
-    // (Direction of the angle is the direction of the force on each element)
-    state.world.masses[i].collisionWith.index = j
-    state.world.masses[i].collisionWith.mass = massJ
-    state.world.masses[i].collisionWith.u = state.world.masses[j].u
-    state.world.masses[i].collisionWith.v = state.world.masses[j].v
-    state.world.masses[i].collisionWith.angVeloc = state.world.masses[j].angVeloc
-    state.world.masses[i].collisionWith.angle = -angle
-    state.world.masses[i].collisionWith.massRatio = massRatioOfJ
-    // Mark j as having collided with i
-    state.world.masses[j].collisionWith.index = i
-    state.world.masses[j].collisionWith.mass = massI
-    state.world.masses[j].collisionWith.u = state.world.masses[i].u
-    state.world.masses[j].collisionWith.v = state.world.masses[i].v
-    state.world.masses[j].collisionWith.angVeloc = state.world.masses[i].angVeloc
-    state.world.masses[j].collisionWith.angle = angle
-    state.world.masses[j].collisionWith.massRatio = massRatioOfI
-  }
-
-  var findCollisionsBetweenMasses = function() {
+  var findAndDealWithCollisions = function() {
     // Currently checking almost all pairs of masses
     // This could be done smarter when there are a lot of masses!
+    var mass_i = null
+    var mass_j = null
     var xi = 0
     var xj = 0
     var yi = 0
@@ -481,37 +440,31 @@ var playGame = function() {
     var radiusSum = 0
     var countMasses = state.world.masses.length
     for (var i=0; i<countMasses; i++) {
-      var mass1 = state.world.masses[i]
+      mass_i = state.world.masses[i]
       // Only allow one collision per mass per frame
-      if (mass1.collisionWith.index === null) {
-        xi = mass1.x
-        yi = mass1.y
-        ri = mass1.maxRadius
+      if (mass_i.collisionWith.index === null) {
+        xi = mass_i.x
+        yi = mass_i.y
+        ri = mass_i.maxRadius
         for (var j=i+1; j<countMasses; j++) {
-          var mass2 = state.world.masses[j]
-          if (mass2.collisionWith.index === null) {
+          mass_j = state.world.masses[j]
+          if (mass_j.collisionWith.index === null) {
             // Ignore wall-wall collisions at the moment
-            if (!(mass1.isWall && mass2.isWall)) {
-              xj = mass2.x
-              yj = mass2.y
-              rj = mass2.maxRadius
+            if (!(mass_i.isWall && mass_j.isWall)) {
+              xj = mass_j.x
+              yj = mass_j.y
+              rj = mass_j.maxRadius
               distance = measureDistance(xi, yi, xj, yj)
               radiusSum = ri+rj
               if (distance < radiusSum) {
                 if (checkIfTrulyCollided(i, j)) {
-                  // markAsCollided(i, j)
-
-                  // DEBUG - Does this work?
-                  // (Yes! Its been tested, it works)
-                  // console.log("Collision between masses", i, "and", j)
-
                   // Mark both as collided
                   // (This could be changed to a simple true/false)
-                  mass1.collisionWith.index = j
-                  mass2.collisionWith.index = i
+                  mass_i.collisionWith.index = j
+                  mass_j.collisionWith.index = i
                   // Get info for the collision calculation
-                  var m1 = mass1.mass
-                  var m2 = mass2.mass
+                  var m1 = mass_i.mass
+                  var m2 = mass_j.mass
                   var massSum = m1+m2
                   var movementRatio1 = m2/massSum
                   var movementRatio2 = m1/massSum
@@ -523,23 +476,23 @@ var playGame = function() {
                   newVelocityArray = elasticCentredCollision (
                     angleM1M2,
                     m1,
-                    mass1.u,
-                    mass1.v,
+                    mass_i.u,
+                    mass_i.v,
                     m2,
-                    mass2.u,
-                    mass2.v,
+                    mass_j.u,
+                    mass_j.v,
                     state.constants.collisions.dampingFactor
                   )
                   // Put the amended velocity components back
-                  mass1.u = newVelocityArray[0]
-                  mass1.v = newVelocityArray[1]
-                  mass2.u = newVelocityArray[2]
-                  mass2.v = newVelocityArray[3]
+                  mass_i.u = newVelocityArray[0]
+                  mass_i.v = newVelocityArray[1]
+                  mass_j.u = newVelocityArray[2]
+                  mass_j.v = newVelocityArray[3]
                   // Move the masses a small distance apart
-                  mass1.x -= movementRatio1 * repelPx * sin
-                  mass1.y -= movementRatio1 * repelPx * cos
-                  mass2.x += movementRatio2 * repelPx * sin
-                  mass2.y += movementRatio2 * repelPx * cos
+                  mass_i.x -= movementRatio1 * repelPx * sin
+                  mass_i.y -= movementRatio1 * repelPx * cos
+                  mass_j.x += movementRatio2 * repelPx * sin
+                  mass_j.y += movementRatio2 * repelPx * cos
                   break
                 }
               }
@@ -549,66 +502,7 @@ var playGame = function() {
       }
       // Finished dealing with mass i
       // Can reset its marker now
-      mass1.collisionWith.index = null
-    }
-  }
-
-  // IS THIS NEEDED ANY MORE?
-  var dealWithCollision = function(mass) {
-    // Angular velocity currently not changed
-    // Here are the relevant variables for elastic collisions
-    var m1 = mass.mass
-    var u1 = mass.u
-    var v1 = mass.v
-    var m2 = mass.collisionWith.mass
-    var u2 = mass.collisionWith.u
-    var v2 = mass.collisionWith.v
-    var angleM1M2 = -mass.collisionWith.angle
-
-    // Some setup
-    var damping = state.constants.collisions.dampingFactor
-    var massRatioOfOther = mass.collisionWith.massRatio
-    var repelPx = state.constants.collisions.repelPx
-
-    // Function elasticCentredCollision to find new (u, v)
-    var newVelocArray = elasticCentredCollision(angleM1M2, m1, u1, v1, m2, u2, v2)
-    // Output of form of new [u1, v1, u2, v2]
-
-    // NEW METHOD
-    mass.u = damping * newVelocArray[0]
-    mass.v = damping * newVelocArray[1]
-
-    // // OLD METHOD
-    // var massSumInv = 1/(m1+m2)
-    // var massDiff = m1-m2
-    // // Change the momentum according to a (damped) elastic collision
-    // // See: https://en.wikipedia.org/wiki/Elastic_collision
-    var angleDirectlyAway = -angleM1M2
-    // mass.u = damping * massSumInv * (u1 * massDiff + 2*m2*u2 )
-    // mass.v = damping * massSumInv * (v1 * massDiff + 2*m2*v2 )
-
-    // // Move the colliding parties slightly away from each other
-    mass.x += massRatioOfOther * repelPx * Math.sin(degreesToRadians * angleDirectlyAway)
-    mass.y += massRatioOfOther * repelPx * Math.cos(degreesToRadians * angleDirectlyAway)
-
-    // If its a bullet, mark it for removal
-    if (mass.massType === "bullet") {
-      // mass.toBeRemoved = true
-    }
-    // NOT DONE - instead want some kind of damage function which
-
-    // Dealt with collision now. Mark it as not collided
-    mass.collisionWith.index = null
-    // Could also reset the other variables here,
-    // but that's less important.
-  }
-
-  // IS THIS NEEDED ANY MORE?
-  var dealWithCollisions = function() {
-    for (var mass of state.world.masses) {
-      if (mass.collisionWith.index !== null) {
-        dealWithCollision(mass)
-      }
+      mass_i.collisionWith.index = null
     }
   }
 
@@ -842,7 +736,7 @@ var playGame = function() {
 
     state.constants.collisions = {}
     state.constants.collisions.dampingFactor = 0.98     // Retain between 0 and 1 of momentum
-    state.constants.collisions.repelPx = 5              // Move each mass slightly further away
+    state.constants.collisions.repelPx = 0              // Move each mass slightly further away
     // state.constants.collisions.lastCollisionTime = 0
     // state.constants.collisions.timeBeforeNextCollision = 0.1  // Multiple collisions disallowed
     // // since that leads to objects sticking together!
@@ -1179,12 +1073,7 @@ var playGame = function() {
     recalculateAllPhysicsStats()
     updateMassesGameCoords()
     updateMassesCanvasCoords()
-
-    // // Dealing with collisions - more work needed here!
-    // // Can comment these two in and out to turn collision detection on/off
-    findCollisionsBetweenMasses()
-    // dealWithCollisions()
-
+    findAndDealWithCollisions()
     drawCanvas()
     updateTextInHtml()
     removeDeadMasses()
