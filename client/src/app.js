@@ -481,18 +481,20 @@ var playGame = function() {
     var radiusSum = 0
     var countMasses = state.world.masses.length
     for (var i=0; i<countMasses; i++) {
+      var mass1 = state.world.masses[i]
       // Only allow one collision per mass per frame
-      if (state.world.masses[i].collisionWith.index === null) {
-        xi = state.world.masses[i].x
-        yi = state.world.masses[i].y
-        ri = state.world.masses[i].maxRadius
+      if (mass1.collisionWith.index === null) {
+        xi = mass1.x
+        yi = mass1.y
+        ri = mass1.maxRadius
         for (var j=i+1; j<countMasses; j++) {
-          if (state.world.masses[j].collisionWith.index === null) {
+          var mass2 = state.world.masses[j]
+          if (mass2.collisionWith.index === null) {
             // Ignore wall-wall collisions at the moment
-            if (!(state.world.masses[i].isWall && state.world.masses[j].isWall)) {
-              xj = state.world.masses[j].x
-              yj = state.world.masses[j].y
-              rj = state.world.masses[j].maxRadius
+            if (!(mass1.isWall && mass2.isWall)) {
+              xj = mass2.x
+              yj = mass2.y
+              rj = mass2.maxRadius
               distance = measureDistance(xi, yi, xj, yj)
               radiusSum = ri+rj
               if (distance < radiusSum) {
@@ -505,11 +507,11 @@ var playGame = function() {
 
                   // Mark both as collided
                   // (This could be changed to a simple true/false)
-                  state.world.masses[i].collisionWith.index = j
-                  state.world.masses[j].collisionWith.index = i
+                  mass1.collisionWith.index = j
+                  mass2.collisionWith.index = i
                   // Get info for the collision calculation
-                  var m1 = state.world.masses[i].mass
-                  var m2 = state.world.masses[j].mass
+                  var m1 = mass1.mass
+                  var m2 = mass2.mass
                   var massSum = m1+m2
                   var movementRatio1 = m2/massSum
                   var movementRatio2 = m1/massSum
@@ -521,28 +523,23 @@ var playGame = function() {
                   newVelocityArray = elasticCentredCollision (
                     angleM1M2,
                     m1,
-                    state.world.masses[i].u,
-                    state.world.masses[i].v,
+                    mass1.u,
+                    mass1.v,
                     m2,
-                    state.world.masses[j].u,
-                    state.world.masses[j].v,
+                    mass2.u,
+                    mass2.v,
                     state.constants.collisions.dampingFactor
                   )
                   // Put the amended velocity components back
-                  state.world.masses[i].u = newVelocityArray[0]
-                  state.world.masses[i].v = newVelocityArray[1]
-                  state.world.masses[j].u = newVelocityArray[2]
-                  state.world.masses[j].v = newVelocityArray[3]
+                  mass1.u = newVelocityArray[0]
+                  mass1.v = newVelocityArray[1]
+                  mass2.u = newVelocityArray[2]
+                  mass2.v = newVelocityArray[3]
                   // Move the masses a small distance apart
-                  state.world.masses[i].x -= movementRatio1 * repelPx * sin
-                  state.world.masses[i].y -= movementRatio1 * repelPx * cos
-                  state.world.masses[j].x += movementRatio2 * repelPx * sin
-                  state.world.masses[j].y += movementRatio2 * repelPx * sin
-
-
-
-
-
+                  mass1.x -= movementRatio1 * repelPx * sin
+                  mass1.y -= movementRatio1 * repelPx * cos
+                  mass2.x += movementRatio2 * repelPx * sin
+                  mass2.y += movementRatio2 * repelPx * cos
                   break
                 }
               }
@@ -552,7 +549,7 @@ var playGame = function() {
       }
       // Finished dealing with mass i
       // Can reset its marker now
-      state.world.masses[i].collisionWith.index = null
+      mass1.collisionWith.index = null
     }
   }
 
