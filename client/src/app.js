@@ -206,7 +206,7 @@ var playGame = function() {
     state.output.view.zoom = 1  //0.92+0.08/(1+0.0001*d2)
   }
 
-  var drawLineSet = function(coordsArray){
+  var drawLineSet = function(coordsArray, drawLine){
     var context = state.output.context
     context.beginPath()
     var posX = coordsArray[0][0]
@@ -222,7 +222,7 @@ var playGame = function() {
       // posY>boundDown ? posY=boundDown : null
       context.lineTo(posX, posY)
     }
-    context.stroke()
+    if (drawLine) context.stroke()
     context.fill()
     // context.closePath()
   }
@@ -250,7 +250,7 @@ var playGame = function() {
         context.strokeStyle = mass.graphics.back.strokeStyle
         context.lineWidth = mass.graphics.back.lineWidth
         context.fillStyle = mass.graphics.back.fillStyle
-        drawLineSet(mass.canvasBackCoords)
+        drawLineSet(mass.canvasBackCoords, mass.graphics.back.drawLine)
       }
     }
     for (var i in state.world.masses) {
@@ -258,7 +258,7 @@ var playGame = function() {
       context.strokeStyle = mass.graphics.main.strokeStyle
       context.lineWidth = mass.graphics.main.lineWidth
       context.fillStyle = mass.graphics.main.fillStyle
-      drawLineSet(mass.canvasMainCoords)
+      drawLineSet(mass.canvasMainCoords, mass.graphics.main.drawLine)
     }
     if (state.output.view.markCentreOfMass) {
       drawMassCentresAsPoints()
@@ -659,9 +659,11 @@ var playGame = function() {
     newMass.graphics.back.isDrawn = true
     newMass.graphics.main.fillStyle = "#999"
     newMass.graphics.main.strokeStyle = "#AC9"
+    newMass.graphics.main.drawLine = true
     newMass.graphics.main.lineWidth = 3
     newMass.graphics.back.fillStyle = "#444"
     newMass.graphics.back.strokeStyle = "#669"
+    newMass.graphics.back.drawLine = true
     newMass.graphics.back.lineWidth = 2
     // Note: state.world.masses will be rendered in the order they are stored!
     // However, it will only look correct if the objects with
@@ -881,12 +883,10 @@ var playGame = function() {
       maxRadius = 50 + Math.round(150*Math.random())
       minRadius = 10 + Math.round(0.9*maxRadius*Math.random())
       theMass = addNewMass(wallCoordSet[i][0], wallCoordSet[i][1], points, maxRadius, minRadius, density)
+      // theMass.graphics.main.drawLine = false
+      // theMass.graphics.back.drawLine = false
       theMass.graphics.back.zoomOut = 1.05 + 0.5*(1-wallCoordSet[i][2]**0.5)
       theMass.moves = true
-
-      // // DEBUG - single large mass below start point
-      // theMass.toBeRemoved = true
-
     }
 
     var j=0
@@ -937,9 +937,6 @@ var playGame = function() {
     playerShip.graphics.main.strokeStyle = "#ACF"
     playerShip.graphics.main.lineWidth = 2
     playerShip.graphics.back.isDrawn = false
-    // playerShip.graphics.back.fillStyle = "#035"
-    // playerShip.graphics.back.strokeStyle = "#555"
-    // playerShip.graphics.back.lineWidth = 2
 
     // The world needs to know which of its masses is the player ship
     state.world.playerShip = playerShip
