@@ -16,10 +16,12 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.16.2",
-    "nodemon": "^1.12.1"
+    "nodemon": "^1.18.9",
+    "red-blue-line-segment-intersect": "^1.0.1"
   },
   "devDependencies": {
     "mocha": "^4.0.1",
-    "webpack": "^3.8.1"
+    "webpack": "^4.28.2",
+    "webpack-cli": "^3.1.2"
   }
 }

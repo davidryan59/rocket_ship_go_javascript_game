@@ -1,3 +1,5 @@
+var findIntersections = require("red-blue-line-segment-intersect")
+
 var elasticCentredCollision = require('./models/elastic_centred_collision')
 
 var playGame = function() {
@@ -417,12 +419,44 @@ var playGame = function() {
     return resultSign * (90 - angle)
   }
 
-  var checkIfTrulyCollided = function(i, j) {
-    // Maximum radii coincide
-    // Might or might not be a collision
-    // For now - assume there is!
-    // More work needed here!
-    return true
+  var calcGameLineSegments = function(mass) {
+    // These are only needed upon collision
+    // so calculate them separately from coords here
+    var gameCoords = mass.gameCoords
+    var lineSegments = mass.gameLineSegments
+    var len = gameCoords.length
+    var k1 = 0
+    for (var k=0; k<len; k++) {
+      k1 = (k+1) % len
+      lineSegments[k][0][0] = gameCoords[k][0]
+      lineSegments[k][0][1] = gameCoords[k][1]
+      lineSegments[k][1][0] = gameCoords[k1][0]
+      lineSegments[k][1][1] = gameCoords[k1][1]
+    }
+  }
+
+  var checkIfTrulyCollided = function(mass_i, mass_j) {
+
+    var collided = false
+
+    calcGameLineSegments(mass_i)
+    calcGameLineSegments(mass_j)
+
+    // // Use red-blue-line-segment-intersect
+    // // Here's an example
+    var segments_i = mass_i.gameLineSegments
+    var segments_j = mass_j.gameLineSegments
+
+    findIntersections(segments_i, segments_j, function(seg_i, seg_j) {
+      // Iterates over pairs i, j that have collided
+      collided = true
+
+      // This exits the iteration
+      // IMPROVE: calculate point of intersection
+      return true
+    })
+
+    return collided
   }
 
   var findAndDealWithCollisions = function() {
@@ -457,7 +491,7 @@ var playGame = function() {
               distance = measureDistance(xi, yi, xj, yj)
               radiusSum = ri+rj
               if (distance < radiusSum) {
-                if (checkIfTrulyCollided(i, j)) {
+                if (checkIfTrulyCollided(mass_i, mass_j)) {
                   // Mark both as collided
                   // (This could be changed to a simple true/false)
                   mass_i.collisionWith.index = j
@@ -712,10 +746,12 @@ var playGame = function() {
     !newMass.maxRadius ? newMass.maxRadius = 0 : null;
     !newMass.gameCoordsValid ? newMass.gameCoordsValid = false : null
     newMass.gameCoords = newMass.angleRadii.slice()   // Shallow copy! Need deep copy!
+    newMass.gameLineSegments = []
     newMass.canvasMainCoords = newMass.angleRadii.slice()
     newMass.canvasBackCoords = newMass.angleRadii.slice()
     for (var i in newMass.gameCoords) {
       newMass.gameCoords[i] = newMass.gameCoords[i].slice()  // Deep copy done here
+      newMass.gameLineSegments[i] = [[0,0],[0,0]]
       newMass.canvasMainCoords[i] = newMass.canvasMainCoords[i].slice()
       newMass.canvasBackCoords[i] = newMass.canvasBackCoords[i].slice()
     }
@@ -738,7 +774,7 @@ var playGame = function() {
 
     state.constants.collisions = {}
     state.constants.collisions.dampingFactor = 0.98     // Retain between 0 and 1 of momentum
-    state.constants.collisions.repelPx = 0              // Move each mass slightly further away
+    state.constants.collisions.repelPx = 1              // Move each mass slightly further away
     // state.constants.collisions.lastCollisionTime = 0
     // state.constants.collisions.timeBeforeNextCollision = 0.1  // Multiple collisions disallowed
     // // since that leads to objects sticking together!
