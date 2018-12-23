@@ -91,7 +91,6 @@ var playGame = function() {
     var canvasMidY = state.output.canvasDims.centre.y
     var viewMidX = state.output.view.pos.x
     var viewMidY = state.output.view.pos.y
-    var viewZoom = state.output.view.zoom
     var overallZoom = null
 
     // Wrapping coordinates
@@ -114,9 +113,9 @@ var playGame = function() {
     var canvasCoord = [0, 0]
     for (var i=0; i < gameCoordArray.length; i++) {
       if (useZoomArray) {
-        overallZoom = viewZoom * extraZoom[i]
+        overallZoom = extraZoom[i]
       } else {
-        overallZoom = viewZoom * extraZoom
+        overallZoom = extraZoom
       }
       actualWrapX = wrapX * overallZoom
       actualWrapY = wrapY * overallZoom
@@ -196,13 +195,6 @@ var playGame = function() {
     state.output.view.pos.y = followY + viewMoveDistance * (
       Math.cos(degreesToRadians * shipVelAng)
     )
-    // state.output.view.pos.y = followY + radiusConst * followV
-    // When the player ship stops momentarily, the screen zooms in and out
-    // very fast. Fix this.
-    // Note - changing the zoom will make stars go off
-    // the side of the screen, if the constants aren't
-    // calibrated... more work needed here.
-    state.output.view.zoom = 1  //0.92+0.08/(1+0.0001*d2)
   }
 
   var drawLineSet = function(coordsArray, drawLine){
@@ -890,7 +882,6 @@ var playGame = function() {
     // state.output.context = context
 
     state.output.view = {}
-    state.output.view.zoom = 1
     state.output.view.markCentreOfMass = true
     state.output.view.pos = {}
     state.output.view.pos.x = state.output.canvasDims.centre.x
