@@ -8,10 +8,7 @@ var playGame = function() {
   // Allows persistent properties between browser animation frames,
   // pausing, etc.
   var state = {}
-  state.version = {}
-  state.version.number = "0.0.1"
-  state.version.description = "Webpack use started"
-
+  
   // Shortcuts to common constants here
   var degreesToRadians = Math.PI / 180
   var radiansToDegrees = 1 / degreesToRadians
