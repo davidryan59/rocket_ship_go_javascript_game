@@ -8,7 +8,7 @@ var playGame = function() {
   // Allows persistent properties between browser animation frames,
   // pausing, etc.
   var state = {}
-  
+
   // Shortcuts to common constants here
   var degreesToRadians = Math.PI / 180
   var radiansToDegrees = 1 / degreesToRadians
@@ -364,24 +364,29 @@ var playGame = function() {
     state.player.ammo--
   }
 
-  var measureModularOffset = function(coord1, coord2, wrapDistance) {
+  var getModularOffsetAndWraps = function(coord1, coord2, wrapDistance) {
+    var originalDistance = coord2-coord1
     // var halfDistance = 0.5 * wrapDistance    // Slower
     var halfDistance = wrapDistance >> 1        // Faster!
-    var result = (coord2-coord1) % wrapDistance
+    var modDistance = originalDistance % wrapDistance
     // For positive result, between 0 and wrapDistance
     // For negative result, between -wrapDistance and 0
     // If abs value greater than halfDistance, find a number closer to 0
-    if (halfDistance < result) {
-      result -= wrapDistance
-    } else if (result < -halfDistance) {
-      result += wrapDistance
+    if (halfDistance < modDistance) {
+      modDistance -= wrapDistance
+    } else if (modDistance < -halfDistance) {
+      modDistance += wrapDistance
     }
-    return result
+    var numWraps = Math.round((originalDistance-modDistance)/wrapDistance)
+    return [modDistance, numWraps]
   }
 
   var measureDistance = function(x1, y1, x2, y2) {
-    var offsetX = measureModularOffset(x1, x2, state.world.wrapCoords.x)
-    var offsetY = measureModularOffset(y1, y2, state.world.wrapCoords.y)
+    var offsetArrayX = getModularOffsetAndWraps(x1, x2, state.world.wrapCoords.x)
+    var offsetArrayY = getModularOffsetAndWraps(y1, y2, state.world.wrapCoords.y)
+    var offsetX = offsetArrayX[0]
+    var offsetY = offsetArrayY[0]
+
     // Offsets are from -wrap/2 to +wrap/2 in each direction
     return Math.sqrt(offsetX**2 + offsetY**2)
   }
@@ -391,12 +396,15 @@ var playGame = function() {
     // In degrees:
     // Up=0, up-right=45, right=90, right-down=135, down=180
     // Down+1 = -179, down-left=-135, left=-90, left-up = -45, up=0
-    var xD = measureModularOffset(x1, x2, state.world.wrapCoords.x)
-    var yD = measureModularOffset(y1, y2, state.world.wrapCoords.y)
+    var offsetArrayX = getModularOffsetAndWraps(x1, x2, state.world.wrapCoords.x)
+    var offsetArrayY = getModularOffsetAndWraps(y1, y2, state.world.wrapCoords.y)
+    var offsetX = offsetArrayX[0]
+    var offsetY = offsetArrayY[0]
+
     // Deal with case x offset = 0
-    if (xD === 0) {
+    if (offsetX === 0) {
       // Will prevent division by zero below
-      if (yD < 0) {
+      if (offsetY < 0) {
         return 180    // (0, -1) returns 180 degrees
       } else {
         return 0      // (0, 0) and (0, 1) returns 0 degrees
@@ -404,19 +412,19 @@ var playGame = function() {
     }
     // Deal with case x offset < 1
     var resultSign = 1
-    if (xD < 0) {
+    if (offsetX < 0) {
       resultSign = -1
-      xD = -xD
+      offsetX = -offsetX
     }
     // Final case: x offset > 1
-    var angle = radiansToDegrees * Math.atan(yD/xD)
+    var angle = radiansToDegrees * Math.atan(offsetY/offsetX)
     // angle = 0 for 'right'
     // angle -> 90 for 'up'
     // angle -> -90 for 'down'
     return resultSign * (90 - angle)
   }
 
-  var calcGameLineSegments = function(mass) {
+  var calcGameLineSegments = function(mass, subtractX, subtractY) {
     // These are only needed upon collision
     // so calculate them separately from coords here
     var gameCoords = mass.gameCoords
@@ -425,10 +433,10 @@ var playGame = function() {
     var k1 = 0
     for (var k=0; k<len; k++) {
       k1 = (k+1) % len
-      lineSegments[k][0][0] = gameCoords[k][0]
-      lineSegments[k][0][1] = gameCoords[k][1]
-      lineSegments[k][1][0] = gameCoords[k1][0]
-      lineSegments[k][1][1] = gameCoords[k1][1]
+      lineSegments[k][0][0] = gameCoords[k][0] - subtractX
+      lineSegments[k][0][1] = gameCoords[k][1] - subtractY
+      lineSegments[k][1][0] = gameCoords[k1][0] - subtractX
+      lineSegments[k][1][1] = gameCoords[k1][1] - subtractY
     }
   }
 
@@ -436,8 +444,20 @@ var playGame = function() {
 
     var collided = false
 
-    calcGameLineSegments(mass_i)
-    calcGameLineSegments(mass_j)
+    var x1 = mass_i.x
+    var x2 = mass_j.x
+    var y1 = mass_i.y
+    var y2 = mass_j.y
+
+    var offsetArrayX = getModularOffsetAndWraps(x1, x2, state.world.wrapCoords.x)
+    var offsetArrayY = getModularOffsetAndWraps(y1, y2, state.world.wrapCoords.y)
+    var wrapX = offsetArrayX[1]
+    var wrapY = offsetArrayY[1]
+    var subtractX = wrapX * state.world.wrapCoords.x
+    var subtractY = wrapY * state.world.wrapCoords.y
+
+    calcGameLineSegments(mass_i, 0, 0)
+    calcGameLineSegments(mass_j, subtractX, subtractY)
 
     // // Use red-blue-line-segment-intersect
     // // Here's an example
